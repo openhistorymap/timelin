@@ -116,6 +116,86 @@
           }
         }
       }
+    },
+    "tl-core": {
+      "root": "projects/tl-core",
+      "sourceRoot": "projects/tl-core/src",
+      "projectType": "library",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-ng-packagr:build",
+          "options": {
+            "tsConfig": "projects/tl-core/tsconfig.lib.json",
+            "project": "projects/tl-core/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "project": "projects/tl-core/ng-package.prod.json"
+            }
+          }
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "main": "projects/tl-core/src/test.ts",
+            "tsConfig": "projects/tl-core/tsconfig.spec.json",
+            "karmaConfig": "projects/tl-core/karma.conf.js"
+          }
+        },
+        "lint": {
+          "builder": "@angular-devkit/build-angular:tslint",
+          "options": {
+            "tsConfig": [
+              "projects/tl-core/tsconfig.lib.json",
+              "projects/tl-core/tsconfig.spec.json"
+            ],
+            "exclude": [
+              "**/node_modules/**"
+            ]
+          }
+        }
+      }
+    },
+    "tl-event": {
+      "root": "projects/tl-event",
+      "sourceRoot": "projects/tl-event/src",
+      "projectType": "library",
+      "prefix": "lib",
+      "architect": {
+        "build": {
+          "builder": "@angular-devkit/build-ng-packagr:build",
+          "options": {
+            "tsConfig": "projects/tl-event/tsconfig.lib.json",
+            "project": "projects/tl-event/ng-package.json"
+          },
+          "configurations": {
+            "production": {
+              "project": "projects/tl-event/ng-package.prod.json"
+            }
+          }
+        },
+        "test": {
+          "builder": "@angular-devkit/build-angular:karma",
+          "options": {
+            "main": "projects/tl-event/src/test.ts",
+            "tsConfig": "projects/tl-event/tsconfig.spec.json",
+            "karmaConfig": "projects/tl-event/karma.conf.js"
+          }
+        },
+        "lint": {
+          "builder": "@angular-devkit/build-angular:tslint",
+          "options": {
+            "tsConfig": [
+              "projects/tl-event/tsconfig.lib.json",
+              "projects/tl-event/tsconfig.spec.json"
+            ],
+            "exclude": [
+              "**/node_modules/**"
+            ]
+          }
+        }
+      }
     }
   },
   "defaultProject": "timelin"

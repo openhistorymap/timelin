@@ -1,0 +1,17 @@
+{
+    "name":"Caius Julius Caesar",
+    "type":"person",
+    "tags":["person","leader","ancient rome", "imperial rome", "assassinated", "transgressor", "gens iulia", "military leader", "political leader"],
+    "id":"ohm:p:1",
+    "events":[
+      {"author":"sirmmo", "c_date":"2018-12-05T12:12", "version":"1", "tool":"raw", "app":"ohm", "subject":"ohm:p:1", "id":"1", "type":"person:birth",  "date":{"century": -1, "year":-100,  "month":7,  "day": [12,13]},   "place":"Rome",                     "coordinates":{},                                           "sources":["https://books.google.com/books?id=gzOXLGbIIYwC&pg=PA16", "https://books.google.com/books?id=oR-ljeBaWIcC&pg=PA30", "https://books.google.com/books?id=9Q83DAAAQBAJ&pg=PA194"], "details":[{"key":"person:birth:mother", "value":"ohm:p:4"}, {"key":"person:birth:father", "value":"ohm:p:5"}]},
+      {"author":"sirmmo", "c_date":"2018-12-05T12:12", "version":"1", "tool":"raw", "app":"ohm", "subject":"ohm:p:1", "id":"3", "type":"person:death", "date":{"year":-44, "month":3, "day": 15},  "place":"Rome",                "coordinates":[], "sources":[], "details":[{"key":"person:death:cause", "value":"assassination"}, {"key":"person:death:assassination:assassin", "value":"ohm:p:2"}]}
+    ],
+    "object":[
+      {"author":"sirmmo", "c_date":"2018-12-05T12:12", "version":"1", "tool":"raw", "app":"ohm", "subject":"ohm:a:3", "id":"4", "type":"artwork:birth", "date":{"century": 16, "year":1599},                      "place":"Stratford upon Avon", "coordinates":{"lon":1.7083, "lat":52.1917}, "precision":1, "sources":[], "details":[{"key":"artwork:creator", "value":"ohm:p:3"}, {"key":"artwork:subject", "value":"ohm:p:1"},{"key":"artwork:name", "value":"The Tragedie of Iulius Cæsar"}]}
+    ],
+    "related":{
+      "ohm:p:4":{"name":"MADRE"},
+      "ohm:p:3":{"name":"PADRE"}
+    }
+}
