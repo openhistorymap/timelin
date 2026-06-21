@@ -5,6 +5,7 @@ export default defineConfig({
     index: 'src/index.ts',
     wikidata: 'src/wikidata.ts',
     vis: 'src/vis.ts',
+    periodo: 'src/periodo.ts',
   },
   format: ['esm', 'cjs'],
   dts: true,

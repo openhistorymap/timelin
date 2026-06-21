@@ -38,6 +38,11 @@
       "types": "./dist/vis.d.ts",
       "import": "./dist/vis.js",
       "require": "./dist/vis.cjs"
+    },
+    "./periodo": {
+      "types": "./dist/periodo.d.ts",
+      "import": "./dist/periodo.js",
+      "require": "./dist/periodo.cjs"
     }
   },
   "files": [

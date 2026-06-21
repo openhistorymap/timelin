@@ -178,6 +178,7 @@
         <button id="to-rome">117 CE</button>
         <button id="to-1492">1492</button>
         <button id="lanes">▦ Swimlanes</button>
+        <button id="periodo">⌖ PeriodO</button>
         <span class="read" id="read">—</span>
       </div>
     </div>
@@ -208,6 +209,7 @@
         <a href="#groups">Swimlanes</a>
         <a href="#vis">vis-timeline</a>
         <a href="#wikidata">Wikidata</a>
+        <a href="#periodo">PeriodO</a>
         <a href="#theming">Theming</a>
         <a href="#api">API</a>
       </nav>
@@ -364,8 +366,34 @@ tl.<span class="tok-f">setEvents</span>(<span class="tok-f">fromVisItems</span>(
 tl.<span class="tok-f">setEvents</span>(events);</code></pre>
       </section>
 
+      <section id="periodo">
+        <h2><span class="n">09</span>PeriodO</h2>
+        <p>
+          <a href="https://perio.do">PeriodO</a> is a gazetteer of scholarly
+          definitions of historical periods — each with a temporal extent (often
+          BCE), a spatial coverage, and a source authority. The adapter maps the
+          dataset to events, and because periods group naturally by region or
+          authority, straight into swimlanes. Press <b>⌖ PeriodO</b> above to load
+          the periods defined for Greece, lane-stacked by source.
+        </p>
+<pre><code><span class="tok-k">import</span> { fetchPeriodo } <span class="tok-k">from</span> <span class="tok-s">'@openhistorymap/timeline-core/periodo'</span>;
+
+<span class="tok-k">const</span> { events, groups } = <span class="tok-k">await</span> <span class="tok-f">fetchPeriodo</span>({
+  spatialCoverage: <span class="tok-s">'Greece'</span>,  <span class="tok-c">// narrow the (~7.5 MB) dataset</span>
+  groupBy: <span class="tok-s">'authority'</span>,       <span class="tok-c">// 'spatialCoverage' (default) | 'authority' | 'none'</span>
+});
+tl.<span class="tok-f">setGroups</span>(groups);
+tl.<span class="tok-f">setEvents</span>(events);</code></pre>
+        <p class="muted">
+          Each period becomes a span linked back to its PeriodO ARK. Have the JSON
+          already? Use <code>fromPeriodoDataset(dataset, opts)</code>. PeriodO years
+          are ISO 8601 (with a year zero), so BCE years are shifted by one to match
+          PeriodO's labels (<code>shiftBce: false</code> to opt out).
+        </p>
+      </section>
+
       <section id="theming">
-        <h2><span class="n">09</span>Theming</h2>
+        <h2><span class="n">10</span>Theming</h2>
         <p>Every visual is a CSS custom property, defaulted on the component root. Override per instance or globally.</p>
 <pre><code><span class="tok-k">new</span> <span class="tok-f">Timeline</span>(host, {
   theme: { brass: <span class="tok-s">'oklch(0.78 0.13 40)'</span>, groundDeep: <span class="tok-s">'#0c0b0a'</span> },
@@ -373,7 +401,7 @@ tl.<span class="tok-f">setEvents</span>(events);</code></pre>
       </section>
 
       <section id="api">
-        <h2><span class="n">10</span>Core API</h2>
+        <h2><span class="n">11</span>Core API</h2>
         <table>
           <tr><th>Member</th><th>Description</th></tr>
           <tr><td><code>new Timeline(host, options)</code></td><td>Construct into any element (it sizes to the host).</td></tr>
@@ -395,6 +423,7 @@ tl.<span class="tok-f">setEvents</span>(events);</code></pre>
 
     <script type="module">
       import { Timeline, formatPlainYear } from './lib/index.js';
+      import { fetchPeriodo } from './lib/periodo.js';
 
       const events = [
         { id: 'punic2', year: -218, endYear: -201, title: 'Second Punic War' },
@@ -443,6 +472,22 @@ tl.<span class="tok-f">setEvents</span>(events);</code></pre>
         tl.setEvents(laneEvents);
         tl.centerOn(1800, 80);
         tl.setYear(1800, { animate: true });
+      };
+      document.getElementById('periodo').onclick = async (e) => {
+        const btn = e.currentTarget;
+        const prev = btn.textContent;
+        btn.textContent = '⌖ loading…';
+        try {
+          const { events: ev, groups: gr } = await fetchPeriodo({ spatialCoverage: 'Greece', groupBy: 'authority' });
+          tl.setGroups(gr);
+          tl.setEvents(ev);
+          tl.setView(-4000, 2000);
+          read.textContent = `${ev.length} periods · ${gr.length} lanes`;
+        } catch (err) {
+          read.textContent = 'PeriodO failed';
+        } finally {
+          btn.textContent = prev;
+        }
       };
     </script>
   </body>

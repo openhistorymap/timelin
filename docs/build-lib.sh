@@ -10,6 +10,7 @@ cd "$(dirname "$0")/.."
 
 rm -rf docs/lib
 npx tsc packages/core/src/index.ts packages/core/src/wikidata.ts packages/core/src/vis.ts \
+  packages/core/src/periodo.ts \
   --outDir docs/lib --module es2020 --target es2019 --moduleResolution node \
   --lib ES2020,DOM,DOM.Iterable --skipLibCheck --removeComments
 

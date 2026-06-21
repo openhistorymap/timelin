@@ -198,6 +198,35 @@ ISO-ish strings (`"+1492-10-12T..."`, `"-0753-04-21"`) parse sign-aware. To
 round-trip the OHM map's own vis items (whose `start` Dates came from
 `DecimaldatePipe`), pass `fromVisItems(items, { decodeTime: dateToDecimal })`.
 
+## PeriodO → periods & swimlanes
+
+[PeriodO](https://perio.do) is a gazetteer of scholarly definitions of
+historical periods (Bronze Age, Hellenistic, Renaissance…), each with a temporal
+extent (often BCE), a spatial coverage, and a source authority. The adapter on
+`@openhistorymap/timeline-core/periodo` maps the PeriodO dataset to events — and,
+since periods group naturally by region or authority, straight into **swimlanes**:
+
+```ts
+import { fetchPeriodo } from '@openhistorymap/timeline-core/periodo';
+
+const { events, groups } = await fetchPeriodo({
+  spatialCoverage: 'Greece', // narrow the (large) dataset
+  groupBy: 'authority',      // 'spatialCoverage' (default) | 'authority' | 'none'
+});
+tl.setGroups(groups);
+tl.setEvents(events);
+```
+
+Each period becomes a span (`start`→`year`, `stop`→`endYear`), labelled and
+linked back to its PeriodO ARK, grouped and colour-coded. Already have the JSON?
+Skip the network with `fromPeriodoDataset(dataset, opts)`. Both the current
+`authorities` schema and the legacy `periodCollections` schema are handled.
+
+> PeriodO years are ISO 8601 (with a year zero), so the adapter shifts BCE years
+> by one by default (`-3499` → "3500 BCE") to match PeriodO's own labels; pass
+> `shiftBce: false` to take the integers verbatim. The full dump is ~7.5 MB —
+> narrow it with `spatialCoverage`, `fromYear`/`toYear`, or `limit`.
+
 ## Theming
 
 Every visual is driven by CSS custom properties, defaulted on the component

@@ -1,6 +1,7 @@
 import { Timeline, formatPlainYear, type TimelineEvent } from '@openhistorymap/timeline-core';
 import { fetchWikidataEvents } from '@openhistorymap/timeline-core/wikidata';
 import { fromVisItems, type VisDataItem } from '@openhistorymap/timeline-core/vis';
+import { fetchPeriodo } from '@openhistorymap/timeline-core/periodo';
 
 /* A few hand-picked events to start with (spans + points). */
 const SAMPLE_EVENTS: TimelineEvent[] = [
@@ -84,6 +85,20 @@ document.getElementById('load-lanes')!.addEventListener('click', () => {
   hint.textContent = 'Swimlanes — events tagged into Politics / Culture / Science lanes. Click a lane label.';
 });
 tl.on('groupSelect', (g) => (hint.textContent = `Lane: ${g.label ?? g.id}`));
+
+/* PeriodO: scholarly period definitions for Greece, grouped into authority swimlanes. */
+document.getElementById('load-periodo')!.addEventListener('click', async () => {
+  hint.textContent = 'Fetching PeriodO dataset…';
+  try {
+    const { events, groups } = await fetchPeriodo({ spatialCoverage: 'Greece', groupBy: 'authority' });
+    tl.setGroups(groups);
+    tl.setEvents(events);
+    tl.setView(-4000, 2000);
+    hint.textContent = `PeriodO — ${events.length} periods for Greece across ${groups.length} authority lanes.`;
+  } catch (err) {
+    hint.textContent = `PeriodO fetch failed: ${(err as Error).message}`;
+  }
+});
 
 /* Live Wikidata demo: Roman emperors (Q842606) with their point-in-time dates. */
 document.getElementById('load-wd')!.addEventListener('click', async () => {

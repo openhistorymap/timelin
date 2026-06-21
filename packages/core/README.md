@@ -17,13 +17,16 @@ tl.on('yearChange', (y) => /* ... */);
 ```
 
 See the [monorepo README](https://github.com/openhistorymap/timel.in) for the
-full guide and the React/Angular bindings. Two dependency-free adapters ship on
+full guide and the React/Angular bindings. Three dependency-free adapters ship on
 subpaths:
 
 - `@openhistorymap/timeline-core/wikidata` — SPARQL → `TimelineEvent[]`.
 - `@openhistorymap/timeline-core/vis` — convert to/from the
   [vis-timeline](https://github.com/visjs/vis-timeline) item format
   (`fromVisItems` / `toVisItems`), so existing vis data drops in.
+- `@openhistorymap/timeline-core/periodo` — map [PeriodO](https://perio.do)
+  period definitions to events + swimlane groups (`fetchPeriodo` /
+  `fromPeriodoDataset`).
 
 ## API surface
 
