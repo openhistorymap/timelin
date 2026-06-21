@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>timel.in — the OpenHistoryMap timeline, as a library</title>
+    <meta
+      name="description"
+      content="A framework-agnostic, deep-time interactive timeline (BCE to CE on one axis). Core + React + Angular, with vis-timeline and Wikidata adapters."
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Marcellus+SC&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ground-deep: oklch(0.16 0.012 60);
+        --ground: oklch(0.2 0.014 60);
+        --ground-raised: oklch(0.24 0.014 60);
+        --hairline: oklch(0.36 0.01 60);
+        --hairline-bright: oklch(0.5 0.014 60);
+        --ink-soft: oklch(0.72 0.018 80);
+        --ink: oklch(0.92 0.018 80);
+        --ink-bright: oklch(0.97 0.018 80);
+        --brass: oklch(0.74 0.115 78);
+        --font-display: 'Marcellus SC', serif;
+        --font-body: 'EB Garamond', Georgia, serif;
+        --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        background: var(--ground-deep);
+        color: var(--ink);
+        font-family: var(--font-body);
+        font-size: 17px;
+        line-height: 1.65;
+        font-feature-settings: 'kern' 1, 'liga' 1, 'lnum' 1;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--brass); text-decoration: none; }
+      a:hover { text-decoration: underline; }
+
+      /* ---- live timeline at the very top ---- */
+      .demo-bar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: linear-gradient(var(--ground-deep), oklch(0.16 0.012 60 / 0.92));
+        backdrop-filter: blur(4px);
+        border-bottom: 1px solid var(--hairline);
+      }
+      #timeline { width: 100%; height: 128px; --timelin-height: 128px; }
+      .demo-controls {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        justify-content: center;
+        padding: 10px 16px;
+        flex-wrap: wrap;
+        border-top: 1px solid var(--hairline);
+      }
+      .demo-controls .read {
+        font-family: var(--font-display);
+        letter-spacing: 0.18em;
+        font-size: 13px;
+        color: var(--ink-soft);
+        min-width: 9ch;
+        text-align: right;
+      }
+      button {
+        font-family: var(--font-body);
+        font-size: 14px;
+        letter-spacing: 0.03em;
+        color: var(--ink);
+        background: transparent;
+        border: 1px solid var(--hairline);
+        padding: 6px 14px;
+        cursor: pointer;
+        transition: border-color 140ms, color 140ms;
+      }
+      button:hover { border-color: var(--brass); color: var(--brass); }
+
+      /* ---- page ---- */
+      .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px 120px; }
+      header.hero { padding: 80px 0 36px; border-bottom: 1px solid var(--hairline); }
+      .eyebrow {
+        font-family: var(--font-display);
+        letter-spacing: 0.34em;
+        font-size: 12px;
+        color: var(--ink-soft);
+        text-transform: uppercase;
+      }
+      h1 {
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: clamp(40px, 7vw, 68px);
+        letter-spacing: 0.01em;
+        margin: 14px 0 10px;
+        line-height: 1.02;
+      }
+      .lede { font-size: 21px; color: var(--ink-soft); max-width: 60ch; font-style: italic; }
+      .badges { margin-top: 26px; display: flex; gap: 10px; flex-wrap: wrap; }
+      .badge {
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        color: var(--ink-soft);
+        border: 1px solid var(--hairline);
+        padding: 5px 11px;
+      }
+      .badge b { color: var(--brass); font-weight: 400; }
+
+      nav.toc {
+        position: sticky;
+        top: 0;
+        display: flex;
+        gap: 22px;
+        flex-wrap: wrap;
+        padding: 16px 0;
+        font-family: var(--font-display);
+        font-size: 12.5px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        border-bottom: 1px solid var(--hairline);
+        background: var(--ground-deep);
+      }
+      nav.toc a { color: var(--ink-soft); }
+      nav.toc a:hover { color: var(--brass); text-decoration: none; }
+
+      section { padding: 46px 0 8px; border-bottom: 1px solid color-mix(in oklch, var(--hairline) 55%, transparent); }
+      section:last-of-type { border-bottom: none; }
+      h2 {
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: 28px;
+        letter-spacing: 0.02em;
+        margin: 0 0 6px;
+      }
+      h2 .n { color: var(--brass); font-size: 17px; margin-right: 12px; }
+      h3 { font-family: var(--font-display); font-weight: 400; font-size: 18px; color: var(--ink-bright); letter-spacing: 0.04em; margin: 26px 0 6px; }
+      p { max-width: 64ch; }
+      .muted { color: var(--ink-soft); }
+
+      pre {
+        background: var(--ground);
+        border: 1px solid var(--hairline);
+        padding: 16px 18px;
+        overflow-x: auto;
+        font-family: var(--font-mono);
+        font-size: 13.5px;
+        line-height: 1.6;
+        color: var(--ink);
+      }
+      code { font-family: var(--font-mono); font-size: 0.92em; color: var(--brass); }
+      pre code { color: inherit; }
+      .tok-c { color: var(--ink-soft); font-style: italic; } /* comment */
+      .tok-k { color: oklch(0.74 0.06 280); }                /* keyword */
+      .tok-s { color: oklch(0.78 0.1 140); }                 /* string */
+      .tok-f { color: var(--brass); }                        /* fn / type */
+
+      table { border-collapse: collapse; width: 100%; margin: 14px 0; font-size: 15px; }
+      th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
+      th { font-family: var(--font-display); font-weight: 400; letter-spacing: 0.06em; color: var(--ink-soft); font-size: 13px; text-transform: uppercase; }
+      td code { color: var(--ink-bright); }
+      td:first-child { white-space: nowrap; }
+
+      footer { padding: 50px 0 0; color: var(--ink-soft); font-size: 14px; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <!-- LIVE DEMO -->
+    <div class="demo-bar">
+      <div id="timeline"></div>
+      <div class="demo-controls">
+        <button id="play">▶ Play</button>
+        <button id="pause">⏸ Pause</button>
+        <button id="to-rome">117 CE</button>
+        <button id="to-1492">1492</button>
+        <span class="read" id="read">—</span>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <header class="hero">
+        <div class="eyebrow">OpenHistoryMap · timel.in</div>
+        <h1>A timeline for all of history.</h1>
+        <p class="lede">
+          One continuous axis from antiquity to now — BCE and CE on the same line.
+          Drag to pan, scroll to zoom, click to set the year. The bar above is the
+          real component, running live.
+        </p>
+        <div class="badges">
+          <span class="badge"><b>0</b> runtime dependencies</span>
+          <span class="badge">core · react · angular</span>
+          <span class="badge">vis-timeline + wikidata adapters</span>
+          <span class="badge"><a href="https://github.com/openhistorymap/timelin">GitHub →</a></span>
+        </div>
+      </header>
+
+      <nav class="toc">
+        <a href="#overview">Overview</a>
+        <a href="#install">Install</a>
+        <a href="#vanilla">Vanilla</a>
+        <a href="#react">React</a>
+        <a href="#angular">Angular</a>
+        <a href="#vis">vis-timeline</a>
+        <a href="#wikidata">Wikidata</a>
+        <a href="#theming">Theming</a>
+        <a href="#api">API</a>
+      </nav>
+
+      <section id="overview">
+        <h2><span class="n">01</span>What it is</h2>
+        <p>
+          <code>timel.in</code> is the OpenHistoryMap timeline, extracted into a
+          framework-agnostic library. The core is a zero-dependency SVG renderer; thin
+          official bindings wrap it for React and Angular, and it works anywhere ES
+          modules do (Vite, Webpack, plain <code>&lt;script type="module"&gt;</code>).
+        </p>
+        <p>
+          Every point in time is a <b>decimal year</b> — a plain number.
+          <code>1492</code>, <code>-753</code> (754 BCE), <code>866.5</code>
+          (mid-866 CE). That is what lets one axis address all of history without
+          bumping into the edges of the JavaScript <code>Date</code> range.
+        </p>
+        <table>
+          <tr><th>Package</th><th>Install</th><th>What it is</th></tr>
+          <tr><td><code>@openhistorymap/timeline-core</code></td><td><code>npm i @openhistorymap/timeline-core</code></td><td>Framework-agnostic engine. No deps.</td></tr>
+          <tr><td><code>@openhistorymap/timeline-react</code></td><td><code>npm i @openhistorymap/timeline-react</code></td><td><code>&lt;Timeline/&gt;</code> React component.</td></tr>
+          <tr><td><code>@openhistorymap/timeline-angular</code></td><td><code>npm i @openhistorymap/timeline-angular</code></td><td><code>&lt;timelin-timeline&gt;</code> Angular component.</td></tr>
+        </table>
+      </section>
+
+      <section id="install">
+        <h2><span class="n">02</span>Install &amp; concepts</h2>
+        <p>The model is four ideas:</p>
+        <table>
+          <tr><td><b>Year</b></td><td>the cursor position, a decimal year.</td></tr>
+          <tr><td><b>Events</b></td><td><code>{ id, year, endYear?, title }</code>. With <code>endYear</code> they render as spans; without, as point markers. Lane-packed automatically.</td></tr>
+          <tr><td><b>Eras</b></td><td>curated pivot points (the dashed verticals). Ships with OHM's set; override with your own.</td></tr>
+          <tr><td><b>View</b></td><td>the visible <code>[start, end]</code> range. Pan and zoom change it.</td></tr>
+        </table>
+      </section>
+
+      <section id="vanilla">
+        <h2><span class="n">03</span>Vanilla / Vite</h2>
+<pre><code><span class="tok-k">import</span> { Timeline } <span class="tok-k">from</span> <span class="tok-s">'@openhistorymap/timeline-core'</span>;
+
+<span class="tok-k">const</span> tl = <span class="tok-k">new</span> <span class="tok-f">Timeline</span>(document.<span class="tok-f">getElementById</span>(<span class="tok-s">'timeline'</span>), {
+  year: <span class="tok-f">117</span>,
+  viewSpan: <span class="tok-f">400</span>,
+  events: [
+    { id: <span class="tok-s">'trajan'</span>, year: <span class="tok-f">98</span>, endYear: <span class="tok-f">117</span>, title: <span class="tok-s">'Reign of Trajan'</span> },
+    { id: <span class="tok-s">'vesuvius'</span>, year: <span class="tok-f">79</span>, title: <span class="tok-s">'Eruption of Vesuvius'</span> },
+  ],
+});
+
+tl.<span class="tok-f">on</span>(<span class="tok-s">'yearChange'</span>, (y) =&gt; console.<span class="tok-f">log</span>(<span class="tok-s">'now at'</span>, y));
+tl.<span class="tok-f">on</span>(<span class="tok-s">'eventSelect'</span>, (e) =&gt; console.<span class="tok-f">log</span>(e.title));
+tl.<span class="tok-f">play</span>({ yearsPerSecond: <span class="tok-f">8</span> }); <span class="tok-c">// ...tl.pause()</span></code></pre>
+        <p class="muted">
+          The host element just needs a height. The component injects its own
+          stylesheet — the OHM "library at night" palette — and is fully themeable.
+        </p>
+      </section>
+
+      <section id="react">
+        <h2><span class="n">04</span>React</h2>
+<pre><code><span class="tok-k">import</span> { Timeline } <span class="tok-k">from</span> <span class="tok-s">'@openhistorymap/timeline-react'</span>;
+
+<span class="tok-k">function</span> <span class="tok-f">App</span>() {
+  <span class="tok-k">const</span> [year, setYear] = <span class="tok-f">useState</span>(<span class="tok-f">117</span>);
+  <span class="tok-k">return</span> (
+    &lt;<span class="tok-f">Timeline</span>
+      style={{ width: <span class="tok-s">'100%'</span>, height: <span class="tok-f">128</span> }}
+      year={year}
+      onYearChange={setYear}
+      events={events}
+      onEventSelect={(e) =&gt; <span class="tok-f">open</span>(e)}
+    /&gt;
+  );
+}</code></pre>
+        <p class="muted">Grab the imperative handle (<code>ref</code>) for <code>play()</code> / <code>pause()</code>.</p>
+      </section>
+
+      <section id="angular">
+        <h2><span class="n">05</span>Angular</h2>
+<pre><code><span class="tok-k">import</span> { TimelinTimelineComponent } <span class="tok-k">from</span> <span class="tok-s">'@openhistorymap/timeline-angular'</span>;
+
+<span class="tok-f">@Component</span>({
+  standalone: <span class="tok-k">true</span>,
+  imports: [TimelinTimelineComponent],
+  template: <span class="tok-s">`
+    &lt;timelin-timeline
+      [(year)]="year"
+      [events]="events"
+      (eventSelect)="open($event)"&gt;
+    &lt;/timelin-timeline&gt;
+  `</span>,
+})
+<span class="tok-k">export class</span> <span class="tok-f">TimelinePanel</span> { year = <span class="tok-f">117</span>; events = [...]; }</code></pre>
+        <p class="muted"><code>[(year)]</code> is a real two-way binding; the renderer runs outside Angular's zone.</p>
+      </section>
+
+      <section id="vis">
+        <h2><span class="n">06</span>vis-timeline compatibility</h2>
+        <p>
+          Existing <a href="https://github.com/visjs/vis-timeline">vis-timeline</a>
+          data drops straight in — array or a live <code>DataSet</code>, BCE included.
+        </p>
+<pre><code><span class="tok-k">import</span> { fromVisItems, toVisItems } <span class="tok-k">from</span> <span class="tok-s">'@openhistorymap/timeline-core/vis'</span>;
+
+tl.<span class="tok-f">setEvents</span>(<span class="tok-f">fromVisItems</span>(myVisDataSet));   <span class="tok-c">// vis → timel.in</span>
+<span class="tok-k">const</span> items = <span class="tok-f">toVisItems</span>(tl.<span class="tok-f">getEvents</span>());     <span class="tok-c">// timel.in → vis</span></code></pre>
+        <p class="muted">
+          <code>content→title</code>, <code>title→description</code>,
+          <code>start→year</code>, <code>end→endYear</code>, <code>type</code>→point/span,
+          <code>style→color</code>; the original item is kept on <code>event.data</code>.
+        </p>
+      </section>
+
+      <section id="wikidata">
+        <h2><span class="n">07</span>Wikidata</h2>
+        <p>A dependency-free adapter turns a SPARQL result into events — the path <code>ohm.openhistoryline.org</code> uses.</p>
+<pre><code><span class="tok-k">import</span> { fetchWikidataEvents } <span class="tok-k">from</span> <span class="tok-s">'@openhistorymap/timeline-core/wikidata'</span>;
+
+<span class="tok-k">const</span> events = <span class="tok-k">await</span> <span class="tok-f">fetchWikidataEvents</span>({
+  classQid: <span class="tok-s">'Q178561'</span>, <span class="tok-c">// e.g. "battle"</span>
+  fromYear: -<span class="tok-f">100</span>, toYear: <span class="tok-f">500</span>,
+});
+tl.<span class="tok-f">setEvents</span>(events);</code></pre>
+      </section>
+
+      <section id="theming">
+        <h2><span class="n">08</span>Theming</h2>
+        <p>Every visual is a CSS custom property, defaulted on the component root. Override per instance or globally.</p>
+<pre><code><span class="tok-k">new</span> <span class="tok-f">Timeline</span>(host, {
+  theme: { brass: <span class="tok-s">'oklch(0.78 0.13 40)'</span>, groundDeep: <span class="tok-s">'#0c0b0a'</span> },
+});</code></pre>
+      </section>
+
+      <section id="api">
+        <h2><span class="n">09</span>Core API</h2>
+        <table>
+          <tr><th>Member</th><th>Description</th></tr>
+          <tr><td><code>new Timeline(host, options)</code></td><td>Construct into any element (it sizes to the host).</td></tr>
+          <tr><td><code>.setYear(y, {animate, silent})</code> / <code>.getYear()</code></td><td>Move / read the cursor.</td></tr>
+          <tr><td><code>.setView(s, e)</code> / <code>.getView()</code> / <code>.centerOn(y, span?)</code></td><td>Control the visible range.</td></tr>
+          <tr><td><code>.setEvents(events)</code> / <code>.setEras(eras)</code></td><td>Replace data.</td></tr>
+          <tr><td><code>.play({yearsPerSecond, to, loop})</code> / <code>.pause()</code> / <code>.isPlaying</code></td><td>Playback.</td></tr>
+          <tr><td><code>.setTheme(theme)</code> / <code>.resize()</code></td><td>Restyle / re-measure.</td></tr>
+          <tr><td><code>.on(name, fn)</code> / <code>.off(name, fn)</code></td><td><code>yearChange</code>, <code>rangeChange</code>, <code>eraSelect</code>, <code>eventSelect</code>, <code>play</code>, <code>pause</code>.</td></tr>
+          <tr><td><code>.destroy()</code></td><td>Tear down listeners, observers, animations, DOM.</td></tr>
+        </table>
+      </section>
+
+      <footer>
+        timel.in — © OpenHistoryMap / Marco Montanari · MIT ·
+        <a href="https://github.com/openhistorymap/timelin">openhistorymap/timelin</a>
+      </footer>
+    </div>
+
+    <script type="module">
+      import { Timeline, formatPlainYear } from './lib/index.js';
+
+      const events = [
+        { id: 'punic2', year: -218, endYear: -201, title: 'Second Punic War' },
+        { id: 'caesar', year: -49, endYear: -45, title: "Caesar's Civil War" },
+        { id: 'augustus', year: -27, title: 'Augustus becomes princeps' },
+        { id: 'vesuvius', year: 79, title: 'Eruption of Vesuvius', description: 'Pompeii buried' },
+        { id: 'trajan', year: 98, endYear: 117, title: 'Reign of Trajan', description: 'Empire at its greatest extent' },
+        { id: 'milan', year: 313, title: 'Edict of Milan' },
+        { id: 'sack', year: 410, title: 'Sack of Rome' },
+        { id: 'columbus', year: 1492, title: 'Columbus reaches the Americas' },
+      ];
+
+      const host = document.getElementById('timeline');
+      const read = document.getElementById('read');
+      const tl = new Timeline(host, { year: 117, viewSpan: 400, events });
+
+      const show = (y) => (read.textContent = formatPlainYear(y));
+      show(tl.getYear());
+      tl.on('yearChange', show);
+
+      document.getElementById('play').onclick = () => tl.play({ yearsPerSecond: 8 });
+      document.getElementById('pause').onclick = () => tl.pause();
+      document.getElementById('to-rome').onclick = () => { tl.centerOn(117, 400); tl.setYear(117, { animate: true }); };
+      document.getElementById('to-1492').onclick = () => { tl.centerOn(1492, 200); tl.setYear(1492, { animate: true }); };
+    </script>
+  </body>
+</html>
