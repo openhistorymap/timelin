@@ -13,12 +13,13 @@ export function parseWikidataYear(iso) {
     return partsToDecimalYear(sign, year, month, day);
 }
 export function mapWikidataBindings(bindings, mapping = {}) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o;
     const idVar = (_a = mapping.id) !== null && _a !== void 0 ? _a : 'item';
     const titleVar = (_b = mapping.title) !== null && _b !== void 0 ? _b : 'itemLabel';
     const dateVar = (_c = mapping.date) !== null && _c !== void 0 ? _c : 'date';
     const endVar = (_d = mapping.endDate) !== null && _d !== void 0 ? _d : 'endDate';
     const descVar = (_e = mapping.description) !== null && _e !== void 0 ? _e : 'itemDescription';
+    const groupVar = mapping.group;
     const out = [];
     for (const b of bindings) {
         const year = parseWikidataYear((_f = b[dateVar]) === null || _f === void 0 ? void 0 : _f.value);
@@ -33,6 +34,7 @@ export function mapWikidataBindings(bindings, mapping = {}) {
             endYear: endYear !== null && endYear > year ? endYear : undefined,
             title: (_l = (_k = b[titleVar]) === null || _k === void 0 ? void 0 : _k.value) !== null && _l !== void 0 ? _l : qid,
             description: (_m = b[descVar]) === null || _m === void 0 ? void 0 : _m.value,
+            group: groupVar ? (_o = b[groupVar]) === null || _o === void 0 ? void 0 : _o.value : undefined,
             url: uri || undefined,
             data: b,
         });

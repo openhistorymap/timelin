@@ -45,6 +45,8 @@ export interface WikidataMapping {
   endDate?: string;
   /** Optional variable holding a description. Default `itemDescription`. */
   description?: string;
+  /** Optional variable whose value tags each event's swimlane group (e.g. `classLabel`). */
+  group?: string;
 }
 
 /** Map raw SPARQL-JSON bindings to timeline events, dropping rows without a parseable date. */
@@ -57,6 +59,7 @@ export function mapWikidataBindings(
   const dateVar = mapping.date ?? 'date';
   const endVar = mapping.endDate ?? 'endDate';
   const descVar = mapping.description ?? 'itemDescription';
+  const groupVar = mapping.group;
 
   const out: TimelineEvent[] = [];
   for (const b of bindings) {
@@ -71,6 +74,7 @@ export function mapWikidataBindings(
       endYear: endYear !== null && endYear > year ? endYear : undefined,
       title: b[titleVar]?.value ?? qid,
       description: b[descVar]?.value,
+      group: groupVar ? b[groupVar]?.value : undefined,
       url: uri || undefined,
       data: b,
     });
