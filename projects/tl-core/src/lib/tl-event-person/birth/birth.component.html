@@ -1,6 +1,0 @@
-<div class="card">
-  <h3>Birth!</h3>
-  <div>date: {{data.date|json}}</div>
-  <div>place:{{data.place}}</div>
-  <div *ngIf="hasField('person:birth:mother', data.details)">Mother:{{getField('person:birth:mother', data.details)}}</div>
-  <div *ngIf="hasField('person:birth:father', data.details)">Father:{{getField('person:birth:father', data.details)}}</div>

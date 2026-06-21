@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>timel.in — demo</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Marcellus+SC&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --ground-deep: oklch(0.16 0.012 60);
+        --ink: oklch(0.92 0.018 80);
+        --ink-soft: oklch(0.72 0.018 80);
+        --brass: oklch(0.74 0.115 78);
+        --hairline: oklch(0.36 0.01 60);
+        --font-body: 'EB Garamond', Georgia, serif;
+        --font-display: 'Marcellus SC', serif;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        background: var(--ground-deep);
+        color: var(--ink);
+        font-family: var(--font-body);
+        display: flex;
+        flex-direction: column;
+      }
+      header { padding: 28px 32px 8px; }
+      h1 {
+        font-family: var(--font-display);
+        font-weight: 400;
+        letter-spacing: 0.04em;
+        margin: 0;
+        font-size: 28px;
+      }
+      p.sub { color: var(--ink-soft); margin: 6px 0 0; max-width: 60ch; }
+      main { flex: 1; display: flex; align-items: center; justify-content: center; }
+      .stage { text-align: center; }
+      .readout { font-family: var(--font-display); letter-spacing: 0.18em; font-size: 14px; color: var(--ink-soft); }
+      .toolbar { display: flex; gap: 12px; justify-content: center; padding: 16px 32px; flex-wrap: wrap; }
+      button {
+        font-family: var(--font-body);
+        font-size: 14px;
+        letter-spacing: 0.04em;
+        color: var(--ink);
+        background: transparent;
+        border: 1px solid var(--hairline);
+        padding: 8px 16px;
+        cursor: pointer;
+        transition: border-color 140ms, color 140ms;
+      }
+      button:hover { border-color: var(--brass); color: var(--brass); }
+      /* The timeline sizes to its host; give the host a height. */
+      #timeline { width: 100vw; height: 132px; --timelin-height: 132px; }
+      .hint { color: var(--ink-soft); font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>timel.in</h1>
+      <p class="sub">
+        The OpenHistoryMap timeline as a framework-agnostic library. Drag to pan, scroll to
+        zoom, click to set the year. Hover the dots for events and eras.
+      </p>
+    </header>
+
+    <main>
+      <div class="stage">
+        <div class="readout" id="readout">—</div>
+        <p class="hint" id="hint">Showing a few hand-picked events.</p>
+      </div>
+    </main>
+
+    <div class="toolbar">
+      <button id="play">▶ Play</button>
+      <button id="pause">⏸ Pause</button>
+      <button id="goto-1492">Jump to 1492</button>
+      <button id="goto-rome">Jump to 117 CE</button>
+      <button id="load-vis">Load a vis-timeline DataSet</button>
+      <button id="load-wd">Load Roman emperors from Wikidata</button>
+    </div>
+
+    <div id="timeline"></div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

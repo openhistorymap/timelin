@@ -1,0 +1,59 @@
+{
+  "name": "@openhistorymap/timeline-core",
+  "version": "0.1.0",
+  "description": "Framework-agnostic, deep-time interactive timeline (BCE→CE) — the OpenHistoryMap timeline as a standalone library.",
+  "type": "module",
+  "license": "MIT",
+  "homepage": "https://timel.in",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openhistorymap/timel.in.git",
+    "directory": "packages/core"
+  },
+  "keywords": [
+    "timeline",
+    "history",
+    "openhistorymap",
+    "svg",
+    "wikidata",
+    "bce",
+    "interactive"
+  ],
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./wikidata": {
+      "types": "./dist/wikidata.d.ts",
+      "import": "./dist/wikidata.js",
+      "require": "./dist/wikidata.cjs"
+    },
+    "./vis": {
+      "types": "./dist/vis.d.ts",
+      "import": "./dist/vis.js",
+      "require": "./dist/vis.cjs"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
