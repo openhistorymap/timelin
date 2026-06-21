@@ -11,6 +11,7 @@ import {
   type PlayOptions,
   type Theme,
   type TimelineEvent,
+  type TimelineGroup,
   type TimelineOptions,
   type ViewRange,
 } from '@openhistorymap/timeline-core';
@@ -20,6 +21,14 @@ export interface TimelineProps {
   year?: number;
   /** Events to render in the event band. */
   events?: TimelineEvent[];
+  /** Swimlane definitions (tag events via `event.group`). */
+  groups?: TimelineGroup[];
+  /** Layout mode: `'auto'` (default), `'swimlane'`, or `'flat'`. */
+  groupMode?: 'auto' | 'swimlane' | 'flat';
+  /** Grow height to fit swimlanes. Default true. */
+  autoHeight?: boolean;
+  /** Left label gutter width (px) in swimlane mode. Default 132. */
+  groupGutter?: number;
   /** Curated era markers (defaults to the bundled OHM set). */
   eras?: Era[];
   /** Initial visible span in years (used only on first mount). */
@@ -38,6 +47,7 @@ export interface TimelineProps {
   onRangeChange?: (range: ViewRange) => void;
   onEraSelect?: (era: Era) => void;
   onEventSelect?: (event: TimelineEvent) => void;
+  onGroupSelect?: (group: TimelineGroup) => void;
   onPlay?: () => void;
   onPause?: () => void;
 
@@ -75,6 +85,10 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
     const opts: TimelineOptions = {
       year: cbRef.current.year,
       events: cbRef.current.events,
+      groups: cbRef.current.groups,
+      groupMode: cbRef.current.groupMode,
+      autoHeight: cbRef.current.autoHeight,
+      groupGutter: cbRef.current.groupGutter,
       eras: cbRef.current.eras,
       viewSpan: cbRef.current.viewSpan,
       theme: cbRef.current.theme,
@@ -91,6 +105,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
       tl.on('rangeChange', (r) => cbRef.current.onRangeChange?.(r)),
       tl.on('eraSelect', (e) => cbRef.current.onEraSelect?.(e)),
       tl.on('eventSelect', (e) => cbRef.current.onEventSelect?.(e)),
+      tl.on('groupSelect', (g) => cbRef.current.onGroupSelect?.(g)),
       tl.on('play', () => cbRef.current.onPlay?.()),
       tl.on('pause', () => cbRef.current.onPause?.()),
     ];
@@ -111,6 +126,10 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
   useEffect(() => {
     if (props.events) coreRef.current?.setEvents(props.events);
   }, [props.events]);
+
+  useEffect(() => {
+    if (props.groups) coreRef.current?.setGroups(props.groups);
+  }, [props.groups]);
 
   useEffect(() => {
     if (props.eras) coreRef.current?.setEras(props.eras);

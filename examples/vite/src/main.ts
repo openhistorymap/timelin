@@ -60,6 +60,31 @@ document.getElementById('load-vis')!.addEventListener('click', () => {
   hint.textContent = `Loaded ${VIS_ITEMS.length} vis-timeline items (Date/number/ISO, BCE included).`;
 });
 
+/* Swimlanes: tag events with a group and define styled lanes. */
+const LANE_GROUPS = [
+  { id: 'politics', label: 'Politics', color: 'oklch(0.74 0.12 75)', order: 0 },
+  { id: 'culture', label: 'Culture', color: 'oklch(0.70 0.11 210)', order: 1 },
+  { id: 'science', label: 'Science', color: 'oklch(0.72 0.12 150)', order: 2 },
+];
+const LANE_EVENTS: TimelineEvent[] = [
+  { id: 'rev', year: 1789, endYear: 1799, title: 'French Revolution', group: 'politics' },
+  { id: 'nap', year: 1804, endYear: 1815, title: 'Napoleonic Empire', group: 'politics' },
+  { id: 'usa', year: 1776, title: 'U.S. Independence', group: 'politics' },
+  { id: 'b5', year: 1808, title: "Beethoven's 5th", group: 'culture' },
+  { id: 'goethe', year: 1808, title: 'Faust, Part One', group: 'culture' },
+  { id: 'frank', year: 1818, title: 'Frankenstein', group: 'culture' },
+  { id: 'jenner', year: 1796, title: 'Smallpox vaccine', group: 'science' },
+  { id: 'volta', year: 1800, title: 'Voltaic pile', group: 'science' },
+  { id: 'dalton', year: 1803, endYear: 1808, title: 'Atomic theory', group: 'science' },
+];
+document.getElementById('load-lanes')!.addEventListener('click', () => {
+  tl.setGroups(LANE_GROUPS);
+  tl.setEvents(LANE_EVENTS);
+  tl.centerOn(1800, 80);
+  hint.textContent = 'Swimlanes — events tagged into Politics / Culture / Science lanes. Click a lane label.';
+});
+tl.on('groupSelect', (g) => (hint.textContent = `Lane: ${g.label ?? g.id}`));
+
 /* Live Wikidata demo: Roman emperors (Q842606) with their point-in-time dates. */
 document.getElementById('load-wd')!.addEventListener('click', async () => {
   hint.textContent = 'Querying Wikidata…';

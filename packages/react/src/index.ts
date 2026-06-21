@@ -14,6 +14,7 @@ export type {
   DecimalYear,
   Era,
   TimelineEvent,
+  TimelineGroup,
   Theme,
   ViewRange,
   PlayOptions,

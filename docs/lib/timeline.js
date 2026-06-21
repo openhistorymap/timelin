@@ -16,22 +16,44 @@ const THEME_VARS = {
     fontDisplay: '--timelin-font-display',
     fontBody: '--timelin-font-body',
 };
+const LANE_AREA_TOP = 44;
+const SUBLANE_PITCH = 17;
+const EVENT_H = 12;
+const ROW_PAD_V = 6;
+const BOTTOM_PAD = 18;
+const MIN_W = 6;
+const LABEL_Y = 36;
 export class Timeline {
     constructor(host, options = {}) {
-        var _a, _b, _c, _d, _e, _f, _g, _h, _j;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q;
         this.width = 1000;
         this.height = 120;
+        this.hostHeight = 120;
+        this.appliedHeight = null;
         this.viewStart = 766;
         this.viewEnd = 966;
         this.cursorYear = 866;
         this.cursorX = 0;
-        this.placed = [];
+        this.layout = {
+            mode: 'flat',
+            gutter: 0,
+            plotLeft: 0,
+            plotWidth: 1000,
+            contentHeight: 120,
+            laneAreaTop: LANE_AREA_TOP,
+            rows: [],
+            flatTop: 46,
+            flatBottom: 98,
+            flatMaxLanes: 3,
+        };
         this.hoveredEra = null;
         this.hoveredEvent = null;
         this.dragging = false;
         this.dragStartX = 0;
         this.dragStartView = [0, 0];
         this.dragMoved = false;
+        this.gutterDown = false;
+        this.gutterDownY = 0;
         this.playLast = 0;
         this.playOpts = null;
         this.listeners = {};
@@ -39,6 +61,12 @@ export class Timeline {
         this.onPointerDown = (ev) => {
             var _a, _b;
             (_b = (_a = ev.currentTarget).setPointerCapture) === null || _b === void 0 ? void 0 : _b.call(_a, ev.pointerId);
+            const lx = this.localX(ev);
+            if (this.layout.mode === 'swimlane' && lx < this.layout.plotLeft) {
+                this.gutterDown = true;
+                this.gutterDownY = ev.clientY - this.svg.getBoundingClientRect().top;
+                return;
+            }
             this.dragging = true;
             this.dragMoved = false;
             this.dragStartX = ev.clientX;
@@ -51,18 +79,24 @@ export class Timeline {
             if (Math.abs(dx) > 3)
                 this.dragMoved = true;
             const span = this.dragStartView[1] - this.dragStartView[0];
-            const dy = (-dx / this.width) * span;
+            const dy = (-dx / this.layout.plotWidth) * span;
             this.viewStart = this.dragStartView[0] + dy;
             this.viewEnd = this.dragStartView[1] + dy;
             this.recompute();
         };
         this.onPointerUp = (ev) => {
+            if (this.gutterDown) {
+                this.gutterDown = false;
+                const row = this.layout.rows.find((r) => r.group && this.gutterDownY >= r.top && this.gutterDownY <= r.top + r.height);
+                if (row === null || row === void 0 ? void 0 : row.group)
+                    this.emit('groupSelect', row.group);
+                return;
+            }
             if (!this.dragging)
                 return;
             this.dragging = false;
             if (!this.dragMoved) {
-                const rect = this.svg.getBoundingClientRect();
-                const y = this.yearAt(ev.clientX - rect.left);
+                const y = this.yearAt(this.localX(ev));
                 this.cursorYear = y;
                 this.renderCursor();
                 this.emit('yearChange', y);
@@ -70,8 +104,7 @@ export class Timeline {
         };
         this.onWheel = (ev) => {
             ev.preventDefault();
-            const rect = this.svg.getBoundingClientRect();
-            const cx = ev.clientX - rect.left;
+            const cx = Math.max(this.layout.plotLeft, this.localX(ev));
             const span = this.viewEnd - this.viewStart;
             const yAtCursor = this.yearAt(cx);
             const factor = ev.deltaY > 0 ? 1.2 : 1 / 1.2;
@@ -87,29 +120,36 @@ export class Timeline {
             viewSpan: (_b = options.viewSpan) !== null && _b !== void 0 ? _b : 240,
             eras: (_c = options.eras) !== null && _c !== void 0 ? _c : DEFAULT_ERAS,
             events: (_d = options.events) !== null && _d !== void 0 ? _d : [],
-            minSpan: (_e = options.minSpan) !== null && _e !== void 0 ? _e : 20,
-            maxSpan: (_f = options.maxSpan) !== null && _f !== void 0 ? _f : 20000,
-            injectStyles: (_g = options.injectStyles) !== null && _g !== void 0 ? _g : true,
-            animate: (_h = options.animate) !== null && _h !== void 0 ? _h : true,
-            seekOnEventClick: (_j = options.seekOnEventClick) !== null && _j !== void 0 ? _j : true,
+            groups: (_e = options.groups) !== null && _e !== void 0 ? _e : [],
+            groupMode: (_f = options.groupMode) !== null && _f !== void 0 ? _f : 'auto',
+            autoHeight: (_g = options.autoHeight) !== null && _g !== void 0 ? _g : true,
+            groupGutter: (_h = options.groupGutter) !== null && _h !== void 0 ? _h : 132,
+            ungroupedLabel: (_j = options.ungroupedLabel) !== null && _j !== void 0 ? _j : '',
+            maxSubLanes: (_k = options.maxSubLanes) !== null && _k !== void 0 ? _k : 6,
+            minSpan: (_l = options.minSpan) !== null && _l !== void 0 ? _l : 20,
+            maxSpan: (_m = options.maxSpan) !== null && _m !== void 0 ? _m : 20000,
+            injectStyles: (_o = options.injectStyles) !== null && _o !== void 0 ? _o : true,
+            animate: (_p = options.animate) !== null && _p !== void 0 ? _p : true,
+            seekOnEventClick: (_q = options.seekOnEventClick) !== null && _q !== void 0 ? _q : true,
             theme: options.theme,
         };
         this.eras = this.opts.eras.slice();
         this.events = this.opts.events.slice();
+        this.groups = this.opts.groups.slice();
         this.cursorYear = numericYear(this.opts.year);
         if (this.opts.injectStyles)
             injectStyles();
         this.buildDom();
         if (this.opts.theme)
             this.setTheme(this.opts.theme);
-        const initialView = options.view;
         this.measure();
-        if (initialView) {
-            this.viewStart = initialView.start;
-            this.viewEnd = initialView.end;
+        if (options.view) {
+            this.viewStart = options.view.start;
+            this.viewEnd = options.view.end;
         }
         else {
-            this.centerOn(this.cursorYear, this.opts.viewSpan);
+            this.viewStart = this.cursorYear - this.opts.viewSpan / 2;
+            this.viewEnd = this.cursorYear + this.opts.viewSpan / 2;
         }
         this.recompute();
         if (typeof ResizeObserver !== 'undefined') {
@@ -125,12 +165,14 @@ export class Timeline {
         this.svg = document.createElementNS(SVG_NS, 'svg');
         this.svg.setAttribute('class', 'timelin-ruler');
         this.svg.setAttribute('preserveAspectRatio', 'none');
+        this.gLanes = svgGroup('timelin-lanes');
         this.gTicks = svgGroup('timelin-ticks');
         this.gLabels = svgGroup('timelin-labels');
         this.gEras = svgGroup('timelin-eras');
         this.gEvents = svgGroup('timelin-events');
+        this.gGutter = svgGroup('timelin-gutter-g');
         this.gCursor = svgGroup('timelin-cursor');
-        this.svg.append(this.gTicks, this.gLabels, this.gEras, this.gEvents, this.gCursor);
+        this.svg.append(this.gLanes, this.gTicks, this.gLabels, this.gEras, this.gEvents, this.gGutter, this.gCursor);
         this.readout = document.createElement('div');
         this.readout.className = 'timelin-readout';
         const anno = document.createElement('span');
@@ -152,39 +194,172 @@ export class Timeline {
     }
     measure() {
         this.width = this.root.clientWidth || 1000;
-        this.height = Math.max(96, this.root.clientHeight || 120);
+        this.hostHeight = Math.max(96, this.root.clientHeight || 120);
+    }
+    applySvgSize() {
         this.svg.setAttribute('viewBox', `0 0 ${this.width} ${this.height}`);
         this.svg.setAttribute('width', String(this.width));
         this.svg.setAttribute('height', String(this.height));
     }
+    applyHostHeight(h) {
+        if (h === null) {
+            if (this.appliedHeight !== null) {
+                this.root.style.height = '';
+                this.appliedHeight = null;
+            }
+            return;
+        }
+        if (this.appliedHeight !== h) {
+            this.root.style.height = `${h}px`;
+            this.appliedHeight = h;
+        }
+    }
     xFor(year) {
         const span = this.viewEnd - this.viewStart;
-        return ((year - this.viewStart) / span) * this.width;
+        return this.layout.plotLeft + ((year - this.viewStart) / span) * this.layout.plotWidth;
     }
     yearAt(px) {
         const span = this.viewEnd - this.viewStart;
-        return this.viewStart + (px / this.width) * span;
+        return this.viewStart + ((px - this.layout.plotLeft) / this.layout.plotWidth) * span;
     }
-    get bands() {
-        const labelY = 36;
-        const eventsTop = 46;
-        const eventsBottom = this.height - 22;
-        const lanePitch = 17;
-        const maxLanes = Math.max(1, Math.floor((eventsBottom - eventsTop) / lanePitch));
-        return { labelY, eventsTop, eventsBottom, lanePitch, maxLanes };
+    resolveMode() {
+        if (this.opts.groupMode === 'flat')
+            return 'flat';
+        if (this.opts.groupMode === 'swimlane')
+            return 'swimlane';
+        const hasGroups = this.groups.some((g) => g.visible !== false) || this.events.some((e) => e.group != null);
+        return hasGroups ? 'swimlane' : 'flat';
+    }
+    resolveGroups() {
+        const map = new Map();
+        this.groups.forEach((g, i) => map.set(g.id, { order: i, ...g }));
+        let order = this.groups.length;
+        for (const e of this.events) {
+            if (e.group != null && !map.has(e.group))
+                map.set(e.group, { id: e.group, order: order++ });
+        }
+        return [...map.values()]
+            .filter((g) => g.visible !== false)
+            .sort((a, b) => { var _a, _b; return ((_a = a.order) !== null && _a !== void 0 ? _a : 0) - ((_b = b.order) !== null && _b !== void 0 ? _b : 0); });
+    }
+    computeLayout() {
+        var _a, _b;
+        const mode = this.resolveMode();
+        if (mode === 'flat') {
+            const top = 46;
+            const bottom = Math.max(96, this.hostHeight) - 22;
+            const maxLanes = Math.max(1, Math.floor((bottom - top) / SUBLANE_PITCH));
+            return {
+                mode,
+                gutter: 0,
+                plotLeft: 0,
+                plotWidth: this.width,
+                contentHeight: Math.max(96, this.hostHeight),
+                laneAreaTop: top,
+                rows: [],
+                flatTop: top,
+                flatBottom: bottom,
+                flatMaxLanes: maxLanes,
+            };
+        }
+        const gutter = this.opts.groupGutter;
+        const groups = this.resolveGroups();
+        const visibleIds = new Set(groups.map((g) => g.id));
+        const byGroup = new Map();
+        const ungrouped = [];
+        for (const e of this.events) {
+            if (e.group != null) {
+                if (!visibleIds.has(e.group))
+                    continue;
+                const list = byGroup.get(e.group);
+                if (list)
+                    list.push(e);
+                else
+                    byGroup.set(e.group, [e]);
+            }
+            else {
+                ungrouped.push(e);
+            }
+        }
+        const rows = [];
+        let y = LANE_AREA_TOP;
+        const addRow = (group, evs, label) => {
+            const { assign, lanes } = packYearSpace(evs, this.opts.maxSubLanes, group === null || group === void 0 ? void 0 : group.lanes);
+            const height = ROW_PAD_V * 2 + lanes * SUBLANE_PITCH;
+            rows.push({ group, top: y, height, subLanes: lanes, events: evs, assign, color: group === null || group === void 0 ? void 0 : group.color, label });
+            y += height;
+        };
+        for (const g of groups)
+            addRow(g, (_a = byGroup.get(g.id)) !== null && _a !== void 0 ? _a : [], (_b = g.label) !== null && _b !== void 0 ? _b : g.id);
+        if (ungrouped.length)
+            addRow(null, ungrouped, this.opts.ungroupedLabel);
+        const contentHeight = Math.max(96, y + BOTTOM_PAD);
+        return {
+            mode,
+            gutter,
+            plotLeft: gutter,
+            plotWidth: Math.max(1, this.width - gutter),
+            contentHeight,
+            laneAreaTop: LANE_AREA_TOP,
+            rows,
+            flatTop: 0,
+            flatBottom: 0,
+            flatMaxLanes: 1,
+        };
     }
     recompute() {
         if (this.destroyed)
             return;
+        this.layout = this.computeLayout();
+        const useAuto = this.layout.mode === 'swimlane' && this.opts.autoHeight;
+        this.height = useAuto ? this.layout.contentHeight : Math.max(96, this.hostHeight);
+        this.applyHostHeight(useAuto ? this.height : null);
+        this.applySvgSize();
+        this.renderLanes();
         this.renderTicks();
         this.renderEras();
         this.renderEvents();
+        this.renderGutter();
         this.renderCursor();
         this.emit('rangeChange', { start: this.viewStart, end: this.viewEnd });
     }
+    renderLanes() {
+        clear(this.gLanes);
+        if (this.layout.mode !== 'swimlane')
+            return;
+        const { plotLeft, plotWidth, rows } = this.layout;
+        this.gLanes.append(svgEl('line', {
+            x1: 0,
+            x2: this.width,
+            y1: this.layout.laneAreaTop,
+            y2: this.layout.laneAreaTop,
+            class: 'timelin-lane-sep',
+        }));
+        for (const row of rows) {
+            if (row.color) {
+                const bg = svgEl('rect', {
+                    x: plotLeft,
+                    y: row.top,
+                    width: plotWidth,
+                    height: row.height,
+                    class: 'timelin-lane-bg',
+                });
+                bg.style.fill = row.color;
+                bg.style.fillOpacity = '0.06';
+                this.gLanes.append(bg);
+            }
+            this.gLanes.append(svgEl('line', {
+                x1: 0,
+                x2: this.width,
+                y1: row.top + row.height,
+                y2: row.top + row.height,
+                class: 'timelin-lane-sep',
+            }));
+        }
+    }
     renderTicks() {
         const span = this.viewEnd - this.viewStart;
-        const pxPerYear = this.width / span;
+        const pxPerYear = this.layout.plotWidth / span;
         let minor;
         let major;
         if (pxPerYear >= 12) {
@@ -205,8 +380,8 @@ export class Timeline {
         }
         const ticks = [];
         const startTick = Math.ceil(this.viewStart / minor) * minor;
-        for (let y = startTick; y <= this.viewEnd; y += minor) {
-            const yr = Math.round(y);
+        for (let yv = startTick; yv <= this.viewEnd; yv += minor) {
+            const yr = Math.round(yv);
             ticks.push({
                 year: yr,
                 x: this.xFor(yr),
@@ -217,6 +392,8 @@ export class Timeline {
         clear(this.gTicks);
         clear(this.gLabels);
         for (const t of ticks) {
+            if (t.x < this.layout.plotLeft - 0.5)
+                continue;
             this.gTicks.append(svgEl('line', {
                 x1: t.x,
                 x2: t.x,
@@ -228,7 +405,7 @@ export class Timeline {
             if (t.label !== undefined) {
                 this.gLabels.append(svgEl('text', {
                     x: t.x,
-                    y: this.bands.labelY,
+                    y: LABEL_Y,
                     class: 'timelin-year-label' + (t.year === 0 ? ' epoch' : ''),
                     'text-anchor': 'middle',
                 }, t.label));
@@ -237,30 +414,32 @@ export class Timeline {
     }
     renderEras() {
         clear(this.gEras);
-        const { eventsTop } = this.bands;
+        const top = this.layout.laneAreaTop;
         const lineBottom = this.height - 6;
         this.eras.forEach((e, i) => {
             if (e.year < this.viewStart || e.year > this.viewEnd)
                 return;
             const x = this.xFor(e.year);
+            if (x < this.layout.plotLeft - 0.5)
+                return;
             const hovered = this.hoveredEra === i;
             this.gEras.append(svgEl('line', {
                 x1: x,
                 x2: x,
-                y1: eventsTop,
+                y1: top,
                 y2: lineBottom,
                 class: 'timelin-era-line' + (hovered ? ' is-hovered' : ''),
             }), svgEl('circle', {
                 cx: x,
-                cy: eventsTop,
+                cy: top,
                 r: 2,
                 class: 'timelin-era-dot' + (hovered ? ' is-hovered' : ''),
             }));
             const hit = svgEl('rect', {
                 x: x - 9,
-                y: eventsTop - 6,
+                y: top - 6,
                 width: 18,
-                height: lineBottom - eventsTop + 6,
+                height: lineBottom - top + 6,
                 class: 'timelin-era-hit',
             });
             hit.addEventListener('mouseenter', () => this.showEraTooltip(i, x));
@@ -274,12 +453,16 @@ export class Timeline {
     }
     renderEvents() {
         clear(this.gEvents);
-        if (!this.events.length) {
-            this.placed = [];
+        if (!this.events.length)
             return;
-        }
-        const { eventsTop, eventsBottom, lanePitch, maxLanes } = this.bands;
-        const MIN_W = 6;
+        if (this.layout.mode === 'swimlane')
+            this.renderSwimEvents();
+        else
+            this.renderFlatEvents();
+    }
+    renderFlatEvents() {
+        const { flatTop, flatBottom, flatMaxLanes } = this.layout;
+        const lanePitch = SUBLANE_PITCH;
         const visible = this.events
             .filter((e) => {
             const end = e.endYear !== undefined ? Math.max(e.endYear, e.year) : e.year;
@@ -287,77 +470,130 @@ export class Timeline {
         })
             .sort((a, b) => a.year - b.year);
         const laneLastX = [];
-        const placed = [];
         for (const ev of visible) {
             const isSpan = ev.endYear !== undefined && ev.endYear > ev.year;
-            let x0 = this.xFor(ev.year);
+            const x0 = this.xFor(ev.year);
             let x1 = isSpan ? this.xFor(ev.endYear) : x0 + MIN_W;
             if (x1 - x0 < MIN_W)
                 x1 = x0 + MIN_W;
             let lane = laneLastX.findIndex((last) => x0 - last > 2);
-            if (lane === -1) {
-                lane = laneLastX.length < maxLanes ? laneLastX.length : maxLanes - 1;
-            }
+            if (lane === -1)
+                lane = laneLastX.length < flatMaxLanes ? laneLastX.length : flatMaxLanes - 1;
             laneLastX[lane] = x1;
-            placed.push({ ev, x0, x1, lane, isSpan });
+            const y = Math.min(flatBottom - EVENT_H, flatTop + lane * lanePitch);
+            this.placeEvent(ev, y, ev.color, flatTop);
         }
-        this.placed = placed;
-        for (const p of placed) {
-            const y = eventsTop + p.lane * lanePitch;
-            const laneH = Math.min(12, lanePitch - 3);
-            const hovered = this.hoveredEvent === p.ev.id;
-            const cx = Math.max(0, Math.min(this.width, p.x0));
-            if (p.isSpan) {
-                const xClamped = Math.max(0, p.x0);
-                const wClamped = Math.min(this.width, p.x1) - xClamped;
-                const rect = svgEl('rect', {
-                    x: xClamped,
-                    y,
-                    width: Math.max(1, wClamped),
-                    height: laneH,
-                    rx: 2,
-                    class: 'timelin-event-span' + (hovered ? ' is-hovered' : ''),
-                });
-                if (p.ev.color) {
-                    rect.style.fill = p.ev.color;
-                    rect.style.stroke = p.ev.color;
-                }
-                this.gEvents.append(rect);
+    }
+    renderSwimEvents() {
+        var _a, _b;
+        for (const row of this.layout.rows) {
+            for (const ev of row.events) {
+                const end = ev.endYear !== undefined ? Math.max(ev.endYear, ev.year) : ev.year;
+                if (end < this.viewStart || ev.year > this.viewEnd)
+                    continue;
+                const sub = (_a = row.assign.get(ev.id)) !== null && _a !== void 0 ? _a : 0;
+                const y = row.top + ROW_PAD_V + sub * SUBLANE_PITCH;
+                this.placeEvent(ev, y, (_b = ev.color) !== null && _b !== void 0 ? _b : row.color, row.top);
             }
-            else {
-                const dot = svgEl('circle', {
-                    cx,
-                    cy: y + laneH / 2,
-                    r: hovered ? 4 : 3,
-                    class: 'timelin-event-dot' + (hovered ? ' is-hovered' : ''),
-                });
-                if (p.ev.color)
-                    dot.style.fill = p.ev.color;
-                this.gEvents.append(dot);
+        }
+    }
+    placeEvent(ev, yTop, color, anchorY) {
+        const isSpan = ev.endYear !== undefined && ev.endYear > ev.year;
+        const x0 = this.xFor(ev.year);
+        let x1 = isSpan ? this.xFor(ev.endYear) : x0 + MIN_W;
+        if (x1 - x0 < MIN_W)
+            x1 = x0 + MIN_W;
+        const hovered = this.hoveredEvent === ev.id;
+        const plotLeft = this.layout.plotLeft;
+        if (isSpan) {
+            const xC = Math.max(plotLeft, x0);
+            const w = Math.min(this.width, x1) - xC;
+            const rect = svgEl('rect', {
+                x: xC,
+                y: yTop,
+                width: Math.max(1, w),
+                height: EVENT_H,
+                rx: 2,
+                class: 'timelin-event-span' + (hovered ? ' is-hovered' : ''),
+            });
+            if (color) {
+                rect.style.fill = color;
+                rect.style.fillOpacity = hovered ? '0.6' : '0.34';
+                rect.style.stroke = color;
             }
-            const hitX = Math.max(0, p.x0 - 4);
-            const hitW = Math.max(MIN_W + 8, Math.min(this.width, p.x1) - hitX + 4);
-            const hit = svgEl('rect', {
-                x: hitX,
-                y: y - 2,
-                width: hitW,
-                height: laneH + 4,
-                class: 'timelin-event-hit',
+            this.gEvents.append(rect);
+        }
+        else {
+            const cx = Math.max(plotLeft, Math.min(this.width, x0));
+            const dot = svgEl('circle', {
+                cx,
+                cy: yTop + EVENT_H / 2,
+                r: hovered ? 4 : 3,
+                class: 'timelin-event-dot' + (hovered ? ' is-hovered' : ''),
             });
-            hit.addEventListener('mouseenter', () => this.showEventTooltip(p, y));
-            hit.addEventListener('mouseleave', () => this.hideTooltip());
-            hit.addEventListener('click', (ev) => {
-                ev.stopPropagation();
-                this.activateEvent(p.ev);
-            });
-            this.gEvents.append(hit);
+            if (color)
+                dot.style.fill = color;
+            this.gEvents.append(dot);
+        }
+        const hitX = Math.max(plotLeft, x0 - 4);
+        const hitW = Math.max(MIN_W + 8, Math.min(this.width, x1) - hitX + 4);
+        const hit = svgEl('rect', {
+            x: hitX,
+            y: yTop - 2,
+            width: hitW,
+            height: EVENT_H + 4,
+            class: 'timelin-event-hit',
+        });
+        const cx = (Math.max(plotLeft, x0) + Math.min(this.width, x1)) / 2;
+        hit.addEventListener('mouseenter', () => this.showEventTooltip(ev, cx, anchorY));
+        hit.addEventListener('mouseleave', () => this.hideTooltip());
+        hit.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.activateEvent(ev);
+        });
+        this.gEvents.append(hit);
+    }
+    renderGutter() {
+        clear(this.gGutter);
+        if (this.layout.mode !== 'swimlane' || this.layout.gutter <= 0)
+            return;
+        const gutter = this.layout.gutter;
+        this.gGutter.append(svgEl('rect', { x: 0, y: 0, width: gutter, height: this.height, class: 'timelin-gutter-bg' }), svgEl('line', { x1: gutter, x2: gutter, y1: 0, y2: this.height, class: 'timelin-gutter-divider' }));
+        const maxChars = Math.max(3, Math.floor((gutter - 22) / 6.2));
+        for (const row of this.layout.rows) {
+            const cy = row.top + row.height / 2;
+            if (row.color) {
+                const accent = svgEl('rect', { x: 0, y: row.top, width: 3, height: row.height, class: 'timelin-lane-accent' });
+                accent.style.fill = row.color;
+                this.gGutter.append(accent);
+            }
+            if (row.label) {
+                const label = svgEl('text', {
+                    x: 12,
+                    y: cy,
+                    class: 'timelin-group-label' + (row.group ? ' clickable' : ''),
+                    'dominant-baseline': 'middle',
+                }, truncate(row.label, maxChars));
+                if (row.color)
+                    label.style.fill = row.color;
+                this.gGutter.append(label);
+            }
+            if (row.group) {
+                const hit = svgEl('rect', { x: 0, y: row.top, width: gutter, height: row.height, class: 'timelin-group-hit' });
+                const g = row.group;
+                hit.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.emit('groupSelect', g);
+                });
+                this.gGutter.append(hit);
+            }
         }
     }
     renderCursor() {
         clear(this.gCursor);
         this.cursorX = this.xFor(this.cursorYear);
         this.readoutPlain.textContent = formatPlainYear(this.cursorYear);
-        const offLeft = this.cursorX < 0;
+        const offLeft = this.cursorX < this.layout.plotLeft;
         const offRight = this.cursorX > this.width;
         if (!offLeft && !offRight) {
             const x = this.cursorX;
@@ -368,10 +604,7 @@ export class Timeline {
                 y2: this.height,
                 class: 'timelin-cursor-line',
                 'shape-rendering': 'crispEdges',
-            }), svgEl('polygon', {
-                class: 'timelin-cursor-cap',
-                points: `${x - 4},0 ${x + 4},0 ${x},8`,
-            }), svgEl('polygon', {
+            }), svgEl('polygon', { class: 'timelin-cursor-cap', points: `${x - 4},0 ${x + 4},0 ${x},8` }), svgEl('polygon', {
                 class: 'timelin-cursor-base',
                 points: `${x - 4},${this.height} ${x + 4},${this.height} ${x},${this.height - 8}`,
             }));
@@ -380,8 +613,12 @@ export class Timeline {
         }
         else {
             this.readout.style.display = 'none';
+            const edge = this.layout.plotLeft;
             if (offLeft) {
-                this.gCursor.append(svgEl('polygon', { class: 'timelin-cursor-cap', points: '2,28 12,22 12,34' }));
+                this.gCursor.append(svgEl('polygon', {
+                    class: 'timelin-cursor-cap',
+                    points: `${edge + 2},28 ${edge + 12},22 ${edge + 12},34`,
+                }));
             }
             else {
                 this.gCursor.append(svgEl('polygon', {
@@ -397,15 +634,14 @@ export class Timeline {
             return;
         this.hoveredEra = i;
         this.renderEras();
-        this.fillTooltip(formatPlainYear(e.year), e.label, x);
+        this.fillTooltip(formatPlainYear(e.year), e.label, x, this.layout.laneAreaTop);
     }
-    showEventTooltip(p, y) {
-        this.hoveredEvent = p.ev.id;
+    showEventTooltip(ev, x, anchorY) {
+        this.hoveredEvent = ev.id;
         this.renderEvents();
-        const x = (Math.max(0, p.x0) + Math.min(this.width, p.x1)) / 2;
-        this.fillTooltip(formatYearRange(p.ev.year, p.ev.endYear), p.ev.description ? `${p.ev.title} — ${p.ev.description}` : p.ev.title, x, y);
+        this.fillTooltip(formatYearRange(ev.year, ev.endYear), ev.description ? `${ev.title} — ${ev.description}` : ev.title, x, anchorY);
     }
-    fillTooltip(year, label, x, anchorY = this.bands.eventsTop) {
+    fillTooltip(year, label, x, anchorY) {
         this.tooltip.innerHTML = '';
         const card = document.createElement('div');
         card.className = 'card';
@@ -435,6 +671,9 @@ export class Timeline {
             this.renderEvents();
         }
     }
+    localX(ev) {
+        return ev.clientX - this.svg.getBoundingClientRect().left;
+    }
     activateEra(i) {
         const e = this.eras[i];
         if (!e)
@@ -460,12 +699,10 @@ export class Timeline {
             const t = Math.min(1, (now - t0) / dur);
             this.cursorYear = start + (target - start) * ease(t);
             this.renderCursor();
-            if (t < 1) {
+            if (t < 1)
                 this.cursorRaf = requestAnimationFrame(step);
-            }
-            else {
+            else
                 this.cursorRaf = undefined;
-            }
         };
         this.cursorRaf = requestAnimationFrame(step);
     }
@@ -569,7 +806,7 @@ export class Timeline {
     }
     setEvents(events) {
         this.events = events.slice();
-        this.renderEvents();
+        this.recompute();
     }
     getEvents() {
         return this.events.slice();
@@ -577,6 +814,13 @@ export class Timeline {
     setEras(eras) {
         this.eras = eras.slice();
         this.renderEras();
+    }
+    setGroups(groups) {
+        this.groups = groups.slice();
+        this.recompute();
+    }
+    getGroups() {
+        return this.groups.slice();
     }
     setTheme(theme) {
         for (const key of Object.keys(theme)) {
@@ -619,8 +863,30 @@ export class Timeline {
         this.svg.removeEventListener('wheel', this.onWheel);
         this.listeners = {};
         this.root.classList.remove('timelin-root');
+        this.root.style.height = '';
         this.root.innerHTML = '';
     }
+}
+function packYearSpace(events, maxSub, fixed) {
+    const cap = fixed !== null && fixed !== void 0 ? fixed : maxSub;
+    const sorted = [...events].sort((a, b) => a.year - b.year);
+    const laneEnd = [];
+    const assign = new Map();
+    for (const e of sorted) {
+        const start = e.year;
+        const end = e.endYear !== undefined && e.endYear > e.year ? e.endYear : e.year;
+        let lane = laneEnd.findIndex((le) => start >= le);
+        if (lane === -1)
+            lane = laneEnd.length < cap ? laneEnd.length : cap - 1;
+        laneEnd[lane] = end;
+        assign.set(e.id, lane);
+    }
+    const used = laneEnd.length === 0 ? 1 : laneEnd.length;
+    const lanes = fixed !== null && fixed !== void 0 ? fixed : Math.min(used, maxSub);
+    return { assign, lanes: Math.max(1, lanes) };
+}
+function truncate(s, maxChars) {
+    return s.length > maxChars ? s.slice(0, Math.max(1, maxChars - 1)) + '…' : s;
 }
 function svgGroup(cls) {
     const g = document.createElementNS(SVG_NS, 'g');

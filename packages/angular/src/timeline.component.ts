@@ -18,6 +18,7 @@ import {
   type PlayOptions,
   type Theme,
   type TimelineEvent,
+  type TimelineGroup,
   type ViewRange,
 } from '@openhistorymap/timeline-core';
 
@@ -49,6 +50,10 @@ import {
 export class TimelinTimelineComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() year = 866;
   @Input() events: TimelineEvent[] = [];
+  @Input() groups?: TimelineGroup[];
+  @Input() groupMode?: 'auto' | 'swimlane' | 'flat';
+  @Input() autoHeight = true;
+  @Input() groupGutter?: number;
   @Input() eras?: Era[];
   @Input() viewSpan?: number;
   @Input() theme?: Partial<Theme>;
@@ -61,6 +66,7 @@ export class TimelinTimelineComponent implements AfterViewInit, OnChanges, OnDes
   @Output() rangeChange = new EventEmitter<ViewRange>();
   @Output() eraSelect = new EventEmitter<Era>();
   @Output() eventSelect = new EventEmitter<TimelineEvent>();
+  @Output() groupSelect = new EventEmitter<TimelineGroup>();
   @Output() playing = new EventEmitter<boolean>();
 
   @ViewChild('host', { static: true }) hostRef!: ElementRef<HTMLDivElement>;
@@ -75,6 +81,10 @@ export class TimelinTimelineComponent implements AfterViewInit, OnChanges, OnDes
       this.tl = new CoreTimeline(this.hostRef.nativeElement, {
         year: this.year,
         events: this.events,
+        groups: this.groups,
+        groupMode: this.groupMode,
+        autoHeight: this.autoHeight,
+        groupGutter: this.groupGutter,
         eras: this.eras,
         viewSpan: this.viewSpan,
         theme: this.theme,
@@ -93,6 +103,7 @@ export class TimelinTimelineComponent implements AfterViewInit, OnChanges, OnDes
       this.tl.on('rangeChange', (r) => this.zone.run(() => this.rangeChange.emit(r)));
       this.tl.on('eraSelect', (e) => this.zone.run(() => this.eraSelect.emit(e)));
       this.tl.on('eventSelect', (e) => this.zone.run(() => this.eventSelect.emit(e)));
+      this.tl.on('groupSelect', (g) => this.zone.run(() => this.groupSelect.emit(g)));
       this.tl.on('play', () => this.zone.run(() => this.playing.emit(true)));
       this.tl.on('pause', () => this.zone.run(() => this.playing.emit(false)));
     });
@@ -104,6 +115,7 @@ export class TimelinTimelineComponent implements AfterViewInit, OnChanges, OnDes
       this.tl.setYear(this.year, { silent: true });
     }
     if (changes['events'] && this.events) this.tl.setEvents(this.events);
+    if (changes['groups'] && this.groups) this.tl.setGroups(this.groups);
     if (changes['eras'] && this.eras) this.tl.setEras(this.eras);
     if (changes['theme'] && this.theme) this.tl.setTheme(this.theme);
   }

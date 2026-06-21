@@ -82,6 +82,22 @@ export const CSS = `
 .timelin-event-dot.is-hovered { fill: var(--timelin-brass); }
 .timelin-event-hit { fill: transparent; cursor: pointer; }
 
+/* SWIMLANES + GUTTER ------------------------------------------------------ */
+.timelin-lane-sep { stroke: var(--timelin-hairline); stroke-width: 1; opacity: 0.6; shape-rendering: crispEdges; }
+.timelin-lane-bg { pointer-events: none; }
+.timelin-gutter-bg { fill: var(--timelin-ground); }
+.timelin-gutter-divider { stroke: var(--timelin-hairline-bright); stroke-width: 1; shape-rendering: crispEdges; }
+.timelin-lane-accent { stroke: none; }
+.timelin-group-label {
+  font-family: var(--timelin-font-display);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  fill: var(--timelin-ink-soft);
+  pointer-events: none;
+}
+.timelin-group-label.clickable { fill: var(--timelin-ink); }
+.timelin-group-hit { fill: transparent; cursor: pointer; }
+
 /* ERAS -------------------------------------------------------------------- */
 .timelin-era-line {
   stroke: var(--timelin-hairline-bright);

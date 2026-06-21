@@ -59,6 +59,7 @@ export function fromVisItem(item, opts = {}) {
         title,
         description,
         color,
+        group: item.group != null ? String(item.group) : undefined,
         url: typeof item['url'] === 'string' ? item['url'] : undefined,
         data: item,
     };
@@ -93,15 +94,55 @@ export function toVisItem(event, opts = {}) {
         item.title = event.description;
     if (event.color)
         item.style = `background-color: ${event.color};`;
+    if (event.group)
+        item.group = event.group;
     if (event.url)
         item['url'] = event.url;
     return item;
+}
+export function fromVisGroup(g, opts = {}) {
+    const strip = opts.stripHtml !== false;
+    return {
+        id: String(g.id),
+        label: cleanText(g.content, strip) || String(g.id),
+        color: opts.colorFromStyle !== false && g.style ? parseColor(g.style) : undefined,
+        order: typeof g.order === 'number' ? g.order : undefined,
+        visible: g.visible,
+        className: g.className,
+        data: g,
+    };
+}
+export function fromVisGroups(groups, opts = {}) {
+    const arr = isDataSet(groups) ? groups.get() : groups;
+    return arr.map((g) => fromVisGroup(g, opts));
+}
+export function toVisGroup(group) {
+    const g = { id: group.id };
+    if (group.label)
+        g.content = group.label;
+    if (group.color)
+        g.style = `color: ${group.color};`;
+    if (group.order !== undefined)
+        g.order = group.order;
+    if (group.visible !== undefined)
+        g.visible = group.visible;
+    if (group.className)
+        g.className = group.className;
+    return g;
+}
+export function toVisGroups(groups) {
+    return groups.map(toVisGroup);
 }
 export function toVisItems(events, opts = {}) {
     return events.map((e) => toVisItem(e, opts));
 }
 export function applyVisItems(timeline, items, opts = {}) {
     timeline.setEvents(fromVisItems(items, opts));
+}
+export function applyVisData(timeline, data, opts = {}) {
+    if (data.groups)
+        timeline.setGroups(fromVisGroups(data.groups, opts));
+    timeline.setEvents(fromVisItems(data.items, opts));
 }
 function cleanText(html, strip) {
     if (!html)

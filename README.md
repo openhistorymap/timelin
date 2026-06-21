@@ -134,6 +134,41 @@ Or pass your own `sparql` string and a `mapping` describing which result columns
 hold the id / title / date / end date. See [`examples/vite/src/main.ts`](examples/vite/src/main.ts)
 for a live "Roman emperors" query.
 
+## Swimlanes (tagged groups)
+
+Give an event a `group` tag and the timeline switches from a single shared band
+to stacked, styled **swimlanes** — one horizontal lane per group, with a label
+gutter on the left. Define groups explicitly to control order, label, colour,
+and visibility, or just tag events and let the lanes be derived:
+
+```ts
+const tl = new Timeline(host, {
+  groups: [
+    { id: 'politics', label: 'Politics', color: 'oklch(0.74 0.12 75)', order: 0 },
+    { id: 'culture',  label: 'Culture',  color: 'oklch(0.70 0.10 200)', order: 1 },
+    { id: 'science',  label: 'Science',  color: 'oklch(0.72 0.11 150)', order: 2 },
+  ],
+  events: [
+    { id: 'a', year: 1789, endYear: 1799, title: 'French Revolution', group: 'politics' },
+    { id: 'b', year: 1808, title: 'Beethoven’s 5th', group: 'culture' },
+    { id: 'c', year: 1859, title: 'On the Origin of Species', group: 'science' },
+  ],
+});
+tl.on('groupSelect', (g) => console.log('lane:', g.id)); // gutter-label clicks
+```
+
+- **Auto-height** — the component grows to fit all lanes (`autoHeight: true`, default).
+  Each group's height is set by how many of its events overlap *in time*, so it's
+  stable as you zoom. Cap the overlap depth with `maxSubLanes`.
+- **Per-group colour** tints the lane and is the default colour for its events
+  (an individual `event.color` still wins).
+- **Modes** — `groupMode: 'auto'` (swimlanes when groups exist, else a flat band),
+  `'swimlane'` (always), or `'flat'` (ignore tags). Gutter width via `groupGutter`
+  (set `0` to hide labels); untagged events fall into one lane labelled `ungroupedLabel`.
+
+Both wrappers expose this: React `<Timeline groups={…} onGroupSelect={…} />`,
+Angular `<timelin-timeline [groups]="…" (groupSelect)="…">`.
+
 ## vis-timeline compatibility
 
 The OHM map originally drove a [vis-timeline](https://github.com/visjs/vis-timeline)
@@ -152,7 +187,9 @@ const visItems = toVisItems(timeline.getEvents());
 
 Field mapping: vis `content`→`title` (HTML stripped), `title`(tooltip)→`description`,
 `start`→`year`, `end`→`endYear`, `type` (`point`/`box` vs `range`/`background`)→
-point/span, `style`→`color`. The original item is preserved on `event.data`.
+point/span, `style`→`color`, `group`→`group`. The original item is preserved on
+`event.data`. vis **groups** map too — `fromVisGroups(...)` → swimlane definitions,
+or do both at once: `applyVisData(tl, { items, groups })`.
 
 Time decoding handles vis's `Date | number | string`, **including BCE** (which
 vis and JS `Date` handle poorly): a `Date` becomes a leap-aware day-of-year

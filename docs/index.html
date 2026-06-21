@@ -177,6 +177,7 @@
         <button id="pause">⏸ Pause</button>
         <button id="to-rome">117 CE</button>
         <button id="to-1492">1492</button>
+        <button id="lanes">▦ Swimlanes</button>
         <span class="read" id="read">—</span>
       </div>
     </div>
@@ -204,6 +205,7 @@
         <a href="#vanilla">Vanilla</a>
         <a href="#react">React</a>
         <a href="#angular">Angular</a>
+        <a href="#groups">Swimlanes</a>
         <a href="#vis">vis-timeline</a>
         <a href="#wikidata">Wikidata</a>
         <a href="#theming">Theming</a>
@@ -303,8 +305,38 @@ tl.<span class="tok-f">play</span>({ yearsPerSecond: <span class="tok-f">8</span
         <p class="muted"><code>[(year)]</code> is a real two-way binding; the renderer runs outside Angular's zone.</p>
       </section>
 
+      <section id="groups">
+        <h2><span class="n">06</span>Swimlanes (tagged groups)</h2>
+        <p>
+          Tag an event with a <code>group</code> and the timeline organises events
+          into stacked, styled <b>swimlanes</b> with a label gutter on the left.
+          Try the <b>▦ Swimlanes</b> button in the bar above. Define groups for
+          order, colour, and visibility, or just tag events and let the lanes be derived.
+        </p>
+<pre><code><span class="tok-k">const</span> tl = <span class="tok-k">new</span> <span class="tok-f">Timeline</span>(host, {
+  groups: [
+    { id: <span class="tok-s">'politics'</span>, label: <span class="tok-s">'Politics'</span>, color: <span class="tok-s">'oklch(0.74 0.12 75)'</span>, order: <span class="tok-f">0</span> },
+    { id: <span class="tok-s">'culture'</span>,  label: <span class="tok-s">'Culture'</span>,  color: <span class="tok-s">'oklch(0.70 0.11 210)'</span>, order: <span class="tok-f">1</span> },
+    { id: <span class="tok-s">'science'</span>,  label: <span class="tok-s">'Science'</span>,  color: <span class="tok-s">'oklch(0.72 0.12 150)'</span>, order: <span class="tok-f">2</span> },
+  ],
+  events: [
+    { id: <span class="tok-s">'rev'</span>, year: <span class="tok-f">1789</span>, endYear: <span class="tok-f">1799</span>, title: <span class="tok-s">'French Revolution'</span>, group: <span class="tok-s">'politics'</span> },
+    { id: <span class="tok-s">'b5'</span>,  year: <span class="tok-f">1808</span>, title: <span class="tok-s">"Beethoven's 5th"</span>, group: <span class="tok-s">'culture'</span> },
+    { id: <span class="tok-s">'volta'</span>, year: <span class="tok-f">1800</span>, title: <span class="tok-s">'Voltaic pile'</span>, group: <span class="tok-s">'science'</span> },
+  ],
+});
+tl.<span class="tok-f">on</span>(<span class="tok-s">'groupSelect'</span>, (g) =&gt; console.<span class="tok-f">log</span>(g.id)); <span class="tok-c">// gutter label clicks</span></code></pre>
+        <p class="muted">
+          Lanes auto-grow the host to fit; each group's height tracks how many of
+          its events overlap in time (stable across zoom, capped by <code>maxSubLanes</code>).
+          <code>groupMode</code> is <code>'auto'</code> / <code>'swimlane'</code> / <code>'flat'</code>;
+          <code>groupGutter</code> sets the label column width. Group colour tints the lane
+          and colours its events.
+        </p>
+      </section>
+
       <section id="vis">
-        <h2><span class="n">06</span>vis-timeline compatibility</h2>
+        <h2><span class="n">07</span>vis-timeline compatibility</h2>
         <p>
           Existing <a href="https://github.com/visjs/vis-timeline">vis-timeline</a>
           data drops straight in — array or a live <code>DataSet</code>, BCE included.
@@ -321,7 +353,7 @@ tl.<span class="tok-f">setEvents</span>(<span class="tok-f">fromVisItems</span>(
       </section>
 
       <section id="wikidata">
-        <h2><span class="n">07</span>Wikidata</h2>
+        <h2><span class="n">08</span>Wikidata</h2>
         <p>A dependency-free adapter turns a SPARQL result into events — the path <code>ohm.openhistoryline.org</code> uses.</p>
 <pre><code><span class="tok-k">import</span> { fetchWikidataEvents } <span class="tok-k">from</span> <span class="tok-s">'@openhistorymap/timeline-core/wikidata'</span>;
 
@@ -333,7 +365,7 @@ tl.<span class="tok-f">setEvents</span>(events);</code></pre>
       </section>
 
       <section id="theming">
-        <h2><span class="n">08</span>Theming</h2>
+        <h2><span class="n">09</span>Theming</h2>
         <p>Every visual is a CSS custom property, defaulted on the component root. Override per instance or globally.</p>
 <pre><code><span class="tok-k">new</span> <span class="tok-f">Timeline</span>(host, {
   theme: { brass: <span class="tok-s">'oklch(0.78 0.13 40)'</span>, groundDeep: <span class="tok-s">'#0c0b0a'</span> },
@@ -341,7 +373,7 @@ tl.<span class="tok-f">setEvents</span>(events);</code></pre>
       </section>
 
       <section id="api">
-        <h2><span class="n">09</span>Core API</h2>
+        <h2><span class="n">10</span>Core API</h2>
         <table>
           <tr><th>Member</th><th>Description</th></tr>
           <tr><td><code>new Timeline(host, options)</code></td><td>Construct into any element (it sizes to the host).</td></tr>
@@ -375,6 +407,23 @@ tl.<span class="tok-f">setEvents</span>(events);</code></pre>
         { id: 'columbus', year: 1492, title: 'Columbus reaches the Americas' },
       ];
 
+      const groups = [
+        { id: 'politics', label: 'Politics', color: 'oklch(0.74 0.12 75)', order: 0 },
+        { id: 'culture', label: 'Culture', color: 'oklch(0.70 0.11 210)', order: 1 },
+        { id: 'science', label: 'Science', color: 'oklch(0.72 0.12 150)', order: 2 },
+      ];
+      const laneEvents = [
+        { id: 'rev', year: 1789, endYear: 1799, title: 'French Revolution', group: 'politics' },
+        { id: 'nap', year: 1804, endYear: 1815, title: 'Napoleonic Empire', group: 'politics' },
+        { id: 'usa', year: 1776, title: 'U.S. Independence', group: 'politics' },
+        { id: 'b5', year: 1808, title: "Beethoven's 5th", group: 'culture' },
+        { id: 'faust', year: 1808, title: 'Faust, Part One', group: 'culture' },
+        { id: 'frank', year: 1818, title: 'Frankenstein', group: 'culture' },
+        { id: 'jenner', year: 1796, title: 'Smallpox vaccine', group: 'science' },
+        { id: 'volta', year: 1800, title: 'Voltaic pile', group: 'science' },
+        { id: 'dalton', year: 1803, endYear: 1808, title: 'Atomic theory', group: 'science' },
+      ];
+
       const host = document.getElementById('timeline');
       const read = document.getElementById('read');
       const tl = new Timeline(host, { year: 117, viewSpan: 400, events });
@@ -382,11 +431,19 @@ tl.<span class="tok-f">setEvents</span>(events);</code></pre>
       const show = (y) => (read.textContent = formatPlainYear(y));
       show(tl.getYear());
       tl.on('yearChange', show);
+      tl.on('groupSelect', (g) => (read.textContent = g.label ?? g.id));
 
+      const reset = () => { tl.setGroups([]); tl.setEvents(events); };
       document.getElementById('play').onclick = () => tl.play({ yearsPerSecond: 8 });
       document.getElementById('pause').onclick = () => tl.pause();
-      document.getElementById('to-rome').onclick = () => { tl.centerOn(117, 400); tl.setYear(117, { animate: true }); };
-      document.getElementById('to-1492').onclick = () => { tl.centerOn(1492, 200); tl.setYear(1492, { animate: true }); };
+      document.getElementById('to-rome').onclick = () => { reset(); tl.centerOn(117, 400); tl.setYear(117, { animate: true }); };
+      document.getElementById('to-1492').onclick = () => { reset(); tl.centerOn(1492, 200); tl.setYear(1492, { animate: true }); };
+      document.getElementById('lanes').onclick = () => {
+        tl.setGroups(groups);
+        tl.setEvents(laneEvents);
+        tl.centerOn(1800, 80);
+        tl.setYear(1800, { animate: true });
+      };
     </script>
   </body>
 </html>

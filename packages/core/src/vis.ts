@@ -23,7 +23,7 @@
  * Zero dependency on vis itself — the types below mirror its `DataItem`/`DataGroup`.
  */
 
-import type { DecimalYear, TimelineEvent } from './types';
+import type { DecimalYear, TimelineEvent, TimelineGroup } from './types';
 import {
   calendarDecimal,
   decimalToCalendarDate,
@@ -163,6 +163,7 @@ export function fromVisItem(item: VisDataItem, opts: FromVisOptions = {}): Timel
     title,
     description,
     color,
+    group: item.group != null ? String(item.group) : undefined,
     url: typeof item['url'] === 'string' ? (item['url'] as string) : undefined,
     data: item,
   };
@@ -200,8 +201,48 @@ export function toVisItem(event: TimelineEvent, opts: ToVisOptions = {}): VisDat
   if (isSpan) item.end = encode(event.endYear as number);
   if (event.description) item.title = event.description;
   if (event.color) item.style = `background-color: ${event.color};`;
+  if (event.group) item.group = event.group;
   if (event.url) item['url'] = event.url;
   return item;
+}
+
+/** Map a vis-timeline group to a {@link TimelineGroup} swimlane. */
+export function fromVisGroup(g: VisDataGroup, opts: FromVisOptions = {}): TimelineGroup {
+  const strip = opts.stripHtml !== false;
+  return {
+    id: String(g.id),
+    label: cleanText(g.content, strip) || String(g.id),
+    color: opts.colorFromStyle !== false && g.style ? parseColor(g.style) : undefined,
+    order: typeof g.order === 'number' ? g.order : undefined,
+    visible: g.visible,
+    className: g.className,
+    data: g,
+  };
+}
+
+/** Map vis groups (array or `DataSet`) to {@link TimelineGroup}s. */
+export function fromVisGroups(
+  groups: VisDataGroup[] | VisDataSetLike<VisDataGroup>,
+  opts: FromVisOptions = {},
+): TimelineGroup[] {
+  const arr = isDataSet<VisDataGroup>(groups) ? groups.get() : groups;
+  return arr.map((g) => fromVisGroup(g, opts));
+}
+
+/** Map a {@link TimelineGroup} to a vis group. */
+export function toVisGroup(group: TimelineGroup): VisDataGroup {
+  const g: VisDataGroup = { id: group.id };
+  if (group.label) g.content = group.label;
+  if (group.color) g.style = `color: ${group.color};`;
+  if (group.order !== undefined) g.order = group.order;
+  if (group.visible !== undefined) g.visible = group.visible;
+  if (group.className) g.className = group.className;
+  return g;
+}
+
+/** Map {@link TimelineGroup}s to vis groups. */
+export function toVisGroups(groups: TimelineGroup[]): VisDataGroup[] {
+  return groups.map(toVisGroup);
 }
 
 /** Map {@link TimelineEvent}s to vis items (e.g. to feed a real vis-timeline). */
@@ -216,6 +257,22 @@ export function applyVisItems(
   opts: FromVisOptions = {},
 ): void {
   timeline.setEvents(fromVisItems(items, opts));
+}
+
+/** Convenience: decode a vis `{ items, groups }` pair (the swimlane case) onto a timeline. */
+export function applyVisData(
+  timeline: {
+    setEvents(events: TimelineEvent[]): void;
+    setGroups(groups: TimelineGroup[]): void;
+  },
+  data: {
+    items: VisDataItem[] | VisDataSetLike<VisDataItem>;
+    groups?: VisDataGroup[] | VisDataSetLike<VisDataGroup>;
+  },
+  opts: FromVisOptions = {},
+): void {
+  if (data.groups) timeline.setGroups(fromVisGroups(data.groups, opts));
+  timeline.setEvents(fromVisItems(data.items, opts));
 }
 
 /* ----------------------------------------------------------------------- */
