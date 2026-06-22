@@ -27,6 +27,8 @@ export interface TimelineProps {
   groupMode?: 'auto' | 'swimlane' | 'flat';
   /** Grow height to fit swimlanes. Default true. */
   autoHeight?: boolean;
+  /** Cap rendered height (px); taller lanes scroll vertically with a pinned axis. */
+  maxHeight?: number;
   /** Left label gutter width (px) in swimlane mode. Default 132. */
   groupGutter?: number;
   /** Curated era markers (defaults to the bundled OHM set). */
@@ -88,6 +90,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
       groups: cbRef.current.groups,
       groupMode: cbRef.current.groupMode,
       autoHeight: cbRef.current.autoHeight,
+      maxHeight: cbRef.current.maxHeight,
       groupGutter: cbRef.current.groupGutter,
       eras: cbRef.current.eras,
       viewSpan: cbRef.current.viewSpan,
@@ -138,6 +141,10 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
   useEffect(() => {
     if (props.theme) coreRef.current?.setTheme(props.theme);
   }, [props.theme]);
+
+  useEffect(() => {
+    coreRef.current?.setMaxHeight(props.maxHeight);
+  }, [props.maxHeight]);
 
   useImperativeHandle(
     ref,

@@ -23,9 +23,12 @@ const ROW_PAD_V = 6;
 const BOTTOM_PAD = 18;
 const MIN_W = 6;
 const LABEL_Y = 36;
+let CLIP_SEQ = 0;
 export class Timeline {
     constructor(host, options = {}) {
         var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q;
+        this.scrollY = 0;
+        this.clipId = `timelin-clip-${++CLIP_SEQ}`;
         this.width = 1000;
         this.height = 120;
         this.hostHeight = 120;
@@ -40,6 +43,8 @@ export class Timeline {
             plotLeft: 0,
             plotWidth: 1000,
             contentHeight: 120,
+            effectiveHeight: 120,
+            maxScrollY: 0,
             laneAreaTop: LANE_AREA_TOP,
             rows: [],
             flatTop: 46,
@@ -50,10 +55,15 @@ export class Timeline {
         this.hoveredEvent = null;
         this.dragging = false;
         this.dragStartX = 0;
+        this.dragStartY = 0;
+        this.dragStartScrollY = 0;
         this.dragStartView = [0, 0];
         this.dragMoved = false;
         this.gutterDown = false;
         this.gutterDownY = 0;
+        this.scrollbarDrag = false;
+        this.scrollStartPointer = 0;
+        this.scrollStartY = 0;
         this.playLast = 0;
         this.playOpts = null;
         this.listeners = {};
@@ -61,33 +71,61 @@ export class Timeline {
         this.onPointerDown = (ev) => {
             var _a, _b;
             (_b = (_a = ev.currentTarget).setPointerCapture) === null || _b === void 0 ? void 0 : _b.call(_a, ev.pointerId);
-            const lx = this.localX(ev);
+            const rect = this.svg.getBoundingClientRect();
+            const lx = ev.clientX - rect.left;
+            const ly = ev.clientY - rect.top;
+            if (this.layout.maxScrollY > 0 && lx >= this.width - 12) {
+                this.scrollbarDrag = true;
+                this.scrollStartPointer = ev.clientY;
+                this.scrollStartY = this.scrollY;
+                return;
+            }
             if (this.layout.mode === 'swimlane' && lx < this.layout.plotLeft) {
                 this.gutterDown = true;
-                this.gutterDownY = ev.clientY - this.svg.getBoundingClientRect().top;
+                this.gutterDownY = ly;
                 return;
             }
             this.dragging = true;
             this.dragMoved = false;
             this.dragStartX = ev.clientX;
+            this.dragStartY = ev.clientY;
+            this.dragStartScrollY = this.scrollY;
             this.dragStartView = [this.viewStart, this.viewEnd];
         };
         this.onPointerMove = (ev) => {
+            if (this.scrollbarDrag) {
+                const top = this.layout.laneAreaTop;
+                const viewH = this.height - top;
+                const contentH = this.layout.contentHeight - top;
+                const thumbH = Math.max(24, (viewH * viewH) / contentH);
+                const ratio = (ev.clientY - this.scrollStartPointer) / Math.max(1, viewH - thumbH);
+                this.setScroll(this.scrollStartY + ratio * this.layout.maxScrollY);
+                return;
+            }
             if (!this.dragging)
                 return;
             const dx = ev.clientX - this.dragStartX;
-            if (Math.abs(dx) > 3)
+            const dyPx = ev.clientY - this.dragStartY;
+            if (Math.abs(dx) > 3 || Math.abs(dyPx) > 3)
                 this.dragMoved = true;
             const span = this.dragStartView[1] - this.dragStartView[0];
-            const dy = (-dx / this.layout.plotWidth) * span;
-            this.viewStart = this.dragStartView[0] + dy;
-            this.viewEnd = this.dragStartView[1] + dy;
+            const shift = (-dx / this.layout.plotWidth) * span;
+            this.viewStart = this.dragStartView[0] + shift;
+            this.viewEnd = this.dragStartView[1] + shift;
+            if (this.layout.maxScrollY > 0) {
+                this.scrollY = Math.max(0, Math.min(this.dragStartScrollY - dyPx, this.layout.maxScrollY));
+            }
             this.recompute();
         };
         this.onPointerUp = (ev) => {
+            if (this.scrollbarDrag) {
+                this.scrollbarDrag = false;
+                return;
+            }
             if (this.gutterDown) {
                 this.gutterDown = false;
-                const row = this.layout.rows.find((r) => r.group && this.gutterDownY >= r.top && this.gutterDownY <= r.top + r.height);
+                const y = this.gutterDownY + this.scrollY;
+                const row = this.layout.rows.find((r) => r.group && y >= r.top && y <= r.top + r.height);
                 if (row === null || row === void 0 ? void 0 : row.group)
                     this.emit('groupSelect', row.group);
                 return;
@@ -103,6 +141,12 @@ export class Timeline {
             }
         };
         this.onWheel = (ev) => {
+            if (this.layout.maxScrollY > 0 && (ev.shiftKey || Math.abs(ev.deltaX) > Math.abs(ev.deltaY))) {
+                ev.preventDefault();
+                const d = Math.abs(ev.deltaY) > Math.abs(ev.deltaX) ? ev.deltaY : ev.deltaX;
+                this.setScroll(this.scrollY + d);
+                return;
+            }
             ev.preventDefault();
             const cx = Math.max(this.layout.plotLeft, this.localX(ev));
             const span = this.viewEnd - this.viewStart;
@@ -131,6 +175,7 @@ export class Timeline {
             injectStyles: (_o = options.injectStyles) !== null && _o !== void 0 ? _o : true,
             animate: (_p = options.animate) !== null && _p !== void 0 ? _p : true,
             seekOnEventClick: (_q = options.seekOnEventClick) !== null && _q !== void 0 ? _q : true,
+            maxHeight: options.maxHeight,
             theme: options.theme,
         };
         this.eras = this.opts.eras.slice();
@@ -171,8 +216,21 @@ export class Timeline {
         this.gEras = svgGroup('timelin-eras');
         this.gEvents = svgGroup('timelin-events');
         this.gGutter = svgGroup('timelin-gutter-g');
+        this.gGutterBg = svgGroup('timelin-gutter-bg-g');
         this.gCursor = svgGroup('timelin-cursor');
-        this.svg.append(this.gLanes, this.gTicks, this.gLabels, this.gEras, this.gEvents, this.gGutter, this.gCursor);
+        this.gScrollbar = svgGroup('timelin-scrollbar-g');
+        const defs = document.createElementNS(SVG_NS, 'defs');
+        const clip = document.createElementNS(SVG_NS, 'clipPath');
+        clip.setAttribute('id', this.clipId);
+        this.clipRect = svgEl('rect', { x: 0, y: 0, width: 1, height: 1 });
+        clip.append(this.clipRect);
+        defs.append(clip);
+        this.gScrollClip = svgGroup('timelin-scrollclip');
+        this.gScrollClip.setAttribute('clip-path', `url(#${this.clipId})`);
+        this.gScrollInner = svgGroup('timelin-scrollinner');
+        this.gScrollInner.append(this.gLanes, this.gEras, this.gEvents, this.gGutter);
+        this.gScrollClip.append(this.gScrollInner);
+        this.svg.append(defs, this.gGutterBg, this.gScrollClip, this.gTicks, this.gLabels, this.gCursor, this.gScrollbar);
         this.readout = document.createElement('div');
         this.readout.className = 'timelin-readout';
         const anno = document.createElement('span');
@@ -247,14 +305,17 @@ export class Timeline {
         const mode = this.resolveMode();
         if (mode === 'flat') {
             const top = 46;
-            const bottom = Math.max(96, this.hostHeight) - 22;
+            const h = Math.max(96, this.hostHeight);
+            const bottom = h - 22;
             const maxLanes = Math.max(1, Math.floor((bottom - top) / SUBLANE_PITCH));
             return {
                 mode,
                 gutter: 0,
                 plotLeft: 0,
                 plotWidth: this.width,
-                contentHeight: Math.max(96, this.hostHeight),
+                contentHeight: h,
+                effectiveHeight: h,
+                maxScrollY: 0,
                 laneAreaTop: top,
                 rows: [],
                 flatTop: top,
@@ -294,12 +355,21 @@ export class Timeline {
         if (ungrouped.length)
             addRow(null, ungrouped, this.opts.ungroupedLabel);
         const contentHeight = Math.max(96, y + BOTTOM_PAD);
+        const cap = this.opts.maxHeight;
+        const effectiveHeight = this.opts.autoHeight
+            ? cap != null
+                ? Math.max(96, Math.min(contentHeight, cap))
+                : contentHeight
+            : Math.max(96, this.hostHeight);
+        const maxScrollY = Math.max(0, contentHeight - effectiveHeight);
         return {
             mode,
             gutter,
             plotLeft: gutter,
             plotWidth: Math.max(1, this.width - gutter),
             contentHeight,
+            effectiveHeight,
+            maxScrollY,
             laneAreaTop: LANE_AREA_TOP,
             rows,
             flatTop: 0,
@@ -312,16 +382,47 @@ export class Timeline {
             return;
         this.layout = this.computeLayout();
         const useAuto = this.layout.mode === 'swimlane' && this.opts.autoHeight;
-        this.height = useAuto ? this.layout.contentHeight : Math.max(96, this.hostHeight);
+        this.height = this.layout.effectiveHeight;
         this.applyHostHeight(useAuto ? this.height : null);
         this.applySvgSize();
+        this.scrollY = Math.max(0, Math.min(this.scrollY, this.layout.maxScrollY));
+        this.updateScrollTransform();
         this.renderLanes();
         this.renderTicks();
         this.renderEras();
         this.renderEvents();
         this.renderGutter();
         this.renderCursor();
+        this.renderScrollbar();
         this.emit('rangeChange', { start: this.viewStart, end: this.viewEnd });
+    }
+    updateScrollTransform() {
+        const top = this.layout.laneAreaTop;
+        this.clipRect.setAttribute('x', '0');
+        this.clipRect.setAttribute('y', String(top));
+        this.clipRect.setAttribute('width', String(this.width));
+        this.clipRect.setAttribute('height', String(Math.max(0, this.height - top)));
+        this.gScrollInner.setAttribute('transform', `translate(0, ${-this.scrollY})`);
+    }
+    renderScrollbar() {
+        clear(this.gScrollbar);
+        if (this.layout.maxScrollY <= 0)
+            return;
+        const top = this.layout.laneAreaTop;
+        const viewH = this.height - top;
+        const contentH = this.layout.contentHeight - top;
+        const x = this.width - 5;
+        this.gScrollbar.append(svgEl('rect', { x, y: top, width: 3, height: viewH, rx: 1.5, class: 'timelin-scrolltrack' }));
+        const thumbH = Math.max(24, (viewH * viewH) / contentH);
+        const thumbY = top + (this.scrollY / this.layout.maxScrollY) * (viewH - thumbH);
+        this.gScrollbar.append(svgEl('rect', { x: x - 1, y: thumbY, width: 5, height: thumbH, rx: 2.5, class: 'timelin-scrollthumb' }));
+    }
+    setScroll(y) {
+        const clamped = Math.max(0, Math.min(y, this.layout.maxScrollY));
+        if (clamped === this.scrollY)
+            return;
+        this.scrollY = clamped;
+        this.recompute();
     }
     renderLanes() {
         clear(this.gLanes);
@@ -402,7 +503,7 @@ export class Timeline {
                 class: t.major ? 'timelin-tick major' : 'timelin-tick minor',
                 'shape-rendering': 'crispEdges',
             }));
-            if (t.label !== undefined) {
+            if (t.label !== undefined && t.x >= this.layout.plotLeft + 14) {
                 this.gLabels.append(svgEl('text', {
                     x: t.x,
                     y: LABEL_Y,
@@ -415,7 +516,7 @@ export class Timeline {
     renderEras() {
         clear(this.gEras);
         const top = this.layout.laneAreaTop;
-        const lineBottom = this.height - 6;
+        const lineBottom = this.layout.contentHeight - 6;
         this.eras.forEach((e, i) => {
             if (e.year < this.viewStart || e.year > this.viewEnd)
                 return;
@@ -555,10 +656,11 @@ export class Timeline {
     }
     renderGutter() {
         clear(this.gGutter);
+        clear(this.gGutterBg);
         if (this.layout.mode !== 'swimlane' || this.layout.gutter <= 0)
             return;
         const gutter = this.layout.gutter;
-        this.gGutter.append(svgEl('rect', { x: 0, y: 0, width: gutter, height: this.height, class: 'timelin-gutter-bg' }), svgEl('line', { x1: gutter, x2: gutter, y1: 0, y2: this.height, class: 'timelin-gutter-divider' }));
+        this.gGutterBg.append(svgEl('rect', { x: 0, y: 0, width: gutter, height: this.height, class: 'timelin-gutter-bg' }), svgEl('line', { x1: gutter, x2: gutter, y1: 0, y2: this.height, class: 'timelin-gutter-divider' }));
         const maxChars = Math.max(3, Math.floor((gutter - 22) / 6.2));
         for (const row of this.layout.rows) {
             const cy = row.top + row.height / 2;
@@ -639,7 +741,8 @@ export class Timeline {
     showEventTooltip(ev, x, anchorY) {
         this.hoveredEvent = ev.id;
         this.renderEvents();
-        this.fillTooltip(formatYearRange(ev.year, ev.endYear), ev.description ? `${ev.title} — ${ev.description}` : ev.title, x, anchorY);
+        const viewportY = Math.max(this.layout.laneAreaTop, anchorY - this.scrollY);
+        this.fillTooltip(formatYearRange(ev.year, ev.endYear), ev.description ? `${ev.title} — ${ev.description}` : ev.title, x, viewportY);
     }
     fillTooltip(year, label, x, anchorY) {
         this.tooltip.innerHTML = '';
@@ -828,6 +931,13 @@ export class Timeline {
             if (value !== undefined)
                 this.root.style.setProperty(THEME_VARS[key], value);
         }
+    }
+    setMaxHeight(h) {
+        this.opts.maxHeight = h;
+        this.recompute();
+    }
+    scrollTo(y) {
+        this.setScroll(y);
     }
     resize() {
         if (this.destroyed)
