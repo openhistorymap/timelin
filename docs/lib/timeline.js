@@ -1,4 +1,4 @@
-import { formatPlainYear, formatYear, formatYearRange, numericYear } from './time.js';
+import { DAY, HOUR, MONTH, MONTHS_SHORT, formatCursor, formatPlainYear, formatYear, formatYearRange, numericYear, } from './time.js';
 import { DEFAULT_ERAS } from './eras.js';
 import { CSS, STYLE_ELEMENT_ID } from './styles.js';
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -112,8 +112,7 @@ export class Timeline {
                 this.dragMoved = true;
             const span = this.dragStartView[1] - this.dragStartView[0];
             const shift = (-dx / this.layout.plotWidth) * span;
-            this.viewStart = this.dragStartView[0] + shift;
-            this.viewEnd = this.dragStartView[1] + shift;
+            this.setView_(this.dragStartView[0] + shift, this.dragStartView[1] + shift);
             if (this.layout.maxScrollY > 0) {
                 this.scrollY = Math.max(0, Math.min(this.dragStartScrollY - dyPx, this.layout.maxScrollY));
             }
@@ -156,8 +155,8 @@ export class Timeline {
             const factor = ev.deltaY > 0 ? 1.2 : 1 / 1.2;
             const newSpan = Math.max(this.opts.minSpan, Math.min(this.opts.maxSpan, span * factor));
             const ratio = (yAtCursor - this.viewStart) / span;
-            this.viewStart = yAtCursor - ratio * newSpan;
-            this.viewEnd = this.viewStart + newSpan;
+            const start = yAtCursor - ratio * newSpan;
+            this.setView_(start, start + newSpan);
             this.recompute();
         };
         this.root = host;
@@ -172,12 +171,13 @@ export class Timeline {
             groupGutter: (_h = options.groupGutter) !== null && _h !== void 0 ? _h : 132,
             ungroupedLabel: (_j = options.ungroupedLabel) !== null && _j !== void 0 ? _j : '',
             maxSubLanes: (_k = options.maxSubLanes) !== null && _k !== void 0 ? _k : 6,
-            minSpan: (_l = options.minSpan) !== null && _l !== void 0 ? _l : 20,
+            minSpan: (_l = options.minSpan) !== null && _l !== void 0 ? _l : HOUR,
             maxSpan: (_m = options.maxSpan) !== null && _m !== void 0 ? _m : 20000,
             injectStyles: (_o = options.injectStyles) !== null && _o !== void 0 ? _o : true,
             animate: (_p = options.animate) !== null && _p !== void 0 ? _p : true,
             seekOnEventClick: (_q = options.seekOnEventClick) !== null && _q !== void 0 ? _q : true,
             maxHeight: options.maxHeight,
+            extent: options.extent,
             theme: options.theme,
         };
         this.eras = this.opts.eras.slice();
@@ -191,12 +191,10 @@ export class Timeline {
             this.setTheme(this.opts.theme);
         this.measure();
         if (options.view) {
-            this.viewStart = options.view.start;
-            this.viewEnd = options.view.end;
+            this.setView_(options.view.start, options.view.end);
         }
         else {
-            this.viewStart = this.cursorYear - this.opts.viewSpan / 2;
-            this.viewEnd = this.cursorYear + this.opts.viewSpan / 2;
+            this.setView_(this.cursorYear - this.opts.viewSpan / 2, this.cursorYear + this.opts.viewSpan / 2);
         }
         this.recompute();
         if (typeof ResizeObserver !== 'undefined') {
@@ -281,6 +279,24 @@ export class Timeline {
     yearAt(px) {
         const span = this.viewEnd - this.viewStart;
         return this.viewStart + ((px - this.layout.plotLeft) / this.layout.plotWidth) * span;
+    }
+    clampView(start, end) {
+        const ext = this.opts.extent;
+        if (!ext)
+            return [start, end];
+        const [lo, hi] = ext;
+        const span = end - start;
+        const maxW = hi - lo;
+        if (span >= maxW)
+            return [lo, hi];
+        if (start < lo)
+            return [lo, lo + span];
+        if (end > hi)
+            return [hi - span, hi];
+        return [start, end];
+    }
+    setView_(start, end) {
+        [this.viewStart, this.viewEnd] = this.clampView(start, end);
     }
     resolveMode() {
         if (this.opts.groupMode === 'flat')
@@ -460,38 +476,66 @@ export class Timeline {
             }));
         }
     }
-    renderTicks() {
-        const span = this.viewEnd - this.viewStart;
-        const pxPerYear = this.layout.plotWidth / span;
-        let minor;
-        let major;
-        if (pxPerYear >= 12) {
-            minor = 1;
-            major = 10;
+    computeTicks() {
+        const start = this.viewStart;
+        const end = this.viewEnd;
+        const pxPerYear = this.layout.plotWidth / (end - start);
+        const out = [];
+        const fmod = (n, m) => ((n % m) + m) % m;
+        const push = (pos, major, label) => {
+            if (pos >= start && pos <= end)
+                out.push({ year: pos, x: 0, major, label });
+        };
+        if (pxPerYear * HOUR >= 6) {
+            const lab = pxPerYear * HOUR >= 26;
+            for (let i = Math.floor(start / HOUR); i <= Math.ceil(end / HOUR); i++) {
+                const H = fmod(i, 24);
+                const td = Math.floor(i / 24);
+                const D = fmod(td, 31);
+                const M = fmod(Math.floor(td / 31), 12);
+                push(i * HOUR, H === 0, H === 0 ? `${D + 1} ${MONTHS_SHORT[M]}` : lab ? `${String(H).padStart(2, '0')}h` : undefined);
+            }
         }
-        else if (pxPerYear >= 1.2) {
-            minor = 10;
-            major = 100;
+        else if (pxPerYear * DAY >= 6) {
+            const lab = pxPerYear * DAY >= 18;
+            for (let j = Math.floor(start / DAY); j <= Math.ceil(end / DAY); j++) {
+                const D = fmod(j, 31);
+                const tm = Math.floor(j / 31);
+                const M = fmod(tm, 12);
+                const Y = Math.floor(tm / 12);
+                push(j * DAY, D === 0, D === 0 ? `${MONTHS_SHORT[M]} ${formatYear(Y)}` : lab ? String(D + 1) : undefined);
+            }
         }
-        else if (pxPerYear >= 0.12) {
-            minor = 100;
-            major = 1000;
+        else if (pxPerYear * MONTH >= 6) {
+            const lab = pxPerYear * MONTH >= 26;
+            for (let k = Math.floor(start / MONTH); k <= Math.ceil(end / MONTH); k++) {
+                const M = fmod(k, 12);
+                const Y = Math.floor(k / 12);
+                push(k * MONTH, M === 0, M === 0 ? formatYear(Y) : lab ? MONTHS_SHORT[M] : undefined);
+            }
         }
         else {
-            minor = 1000;
-            major = 5000;
+            let minor;
+            let major;
+            if (pxPerYear >= 12)
+                [minor, major] = [1, 10];
+            else if (pxPerYear >= 1.2)
+                [minor, major] = [10, 100];
+            else if (pxPerYear >= 0.12)
+                [minor, major] = [100, 1000];
+            else
+                [minor, major] = [1000, 5000];
+            for (let yv = Math.ceil(start / minor) * minor; yv <= end; yv += minor) {
+                const yr = Math.round(yv);
+                push(yr, yr % major === 0, yr % major === 0 ? formatYear(yr) : undefined);
+            }
         }
-        const ticks = [];
-        const startTick = Math.ceil(this.viewStart / minor) * minor;
-        for (let yv = startTick; yv <= this.viewEnd; yv += minor) {
-            const yr = Math.round(yv);
-            ticks.push({
-                year: yr,
-                x: this.xFor(yr),
-                major: yr % major === 0,
-                label: yr % major === 0 ? formatYear(yr) : undefined,
-            });
-        }
+        return out;
+    }
+    renderTicks() {
+        const ticks = this.computeTicks();
+        for (const t of ticks)
+            t.x = this.xFor(t.year);
         clear(this.gTicks);
         clear(this.gLabels);
         for (const t of ticks) {
@@ -703,7 +747,7 @@ export class Timeline {
     renderCursor() {
         clear(this.gCursor);
         this.cursorX = this.xFor(this.cursorYear);
-        this.readoutPlain.textContent = formatPlainYear(this.cursorYear);
+        this.readoutPlain.textContent = formatCursor(this.cursorYear, this.viewEnd - this.viewStart);
         const offLeft = this.cursorX < this.layout.plotLeft;
         const offRight = this.cursorX > this.width;
         if (!offLeft && !offRight) {
@@ -900,14 +944,12 @@ export class Timeline {
         const margin = span * 0.15;
         if (this.cursorYear > this.viewEnd - margin) {
             const shift = this.cursorYear - (this.viewEnd - margin);
-            this.viewStart += shift;
-            this.viewEnd += shift;
+            this.setView_(this.viewStart + shift, this.viewEnd + shift);
             this.recompute();
         }
         else if (this.cursorYear < this.viewStart + margin) {
             const shift = this.viewStart + margin - this.cursorYear;
-            this.viewStart -= shift;
-            this.viewEnd -= shift;
+            this.setView_(this.viewStart - shift, this.viewEnd - shift);
             this.recompute();
         }
     }
@@ -929,16 +971,14 @@ export class Timeline {
         return this.cursorYear;
     }
     setView(start, end) {
-        this.viewStart = start;
-        this.viewEnd = end;
+        this.setView_(start, end);
         this.recompute();
     }
     getView() {
         return { start: this.viewStart, end: this.viewEnd };
     }
     centerOn(year, span = this.viewEnd - this.viewStart) {
-        this.viewStart = year - span / 2;
-        this.viewEnd = year + span / 2;
+        this.setView_(year - span / 2, year + span / 2);
         this.recompute();
     }
     setEvents(events) {

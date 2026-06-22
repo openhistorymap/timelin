@@ -40,6 +40,8 @@ export interface TimelineProps {
   /** Zoom clamps. */
   minSpan?: number;
   maxSpan?: number;
+  /** Hard pan/zoom bounds `[minYear, maxYear]`. */
+  extent?: [number, number];
   /** Animate cursor on `year` changes. Default true. */
   animate?: boolean;
   /** Seek to an event's year when it is clicked. Default true. */
@@ -97,6 +99,7 @@ export const Timeline = forwardRef<TimelineHandle, TimelineProps>(function Timel
       theme: cbRef.current.theme,
       minSpan: cbRef.current.minSpan,
       maxSpan: cbRef.current.maxSpan,
+      extent: cbRef.current.extent,
       animate: cbRef.current.animate,
       seekOnEventClick: cbRef.current.seekOnEventClick,
     };

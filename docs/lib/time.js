@@ -96,3 +96,30 @@ export function decimalToCalendarDate(year) {
     const span = startOfNext.getTime() - startOfYear.getTime();
     return new Date(startOfYear.getTime() + frac * span);
 }
+export const MONTH = 1 / 12;
+export const DAY = 1 / 12 / 31;
+export const HOUR = 1 / 12 / 31 / 24;
+export const MONTHS_SHORT = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+export function decomposeYear(value) {
+    const year = Math.floor(value);
+    let rest = value - year;
+    const month = Math.min(11, Math.floor(rest * 12));
+    rest = rest * 12 - month;
+    const day = Math.min(30, Math.floor(rest * 31));
+    rest = rest * 31 - day;
+    const hour = Math.min(23, Math.floor(rest * 24));
+    return { year, month, day, hour };
+}
+export function formatCursor(value, span) {
+    const yr = formatPlainYear(value);
+    if (span > 6)
+        return yr;
+    const { month, day, hour } = decomposeYear(value);
+    if (span > 0.5)
+        return `${MONTHS_SHORT[month]} ${yr}`;
+    if (span > 0.04)
+        return `${day + 1} ${MONTHS_SHORT[month]} ${yr}`;
+    return `${day + 1} ${MONTHS_SHORT[month]} ${yr}, ${String(hour).padStart(2, '0')}h`;
+}
