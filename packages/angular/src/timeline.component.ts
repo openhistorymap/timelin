@@ -43,7 +43,10 @@ import {
   encapsulation: ViewEncapsulation.None,
   template: `<div #host class="timelin-host"></div>`,
   styles: [
-    `:host { display: block; width: 100%; height: var(--timelin-height, 120px); }
+    // min-height (not height) so the host fits the timeline's own height when
+    // autoHeight grows/shrinks it, while still honouring --timelin-height for
+    // fixed-height (non-autoHeight) usage.
+    `:host { display: block; width: 100%; min-height: var(--timelin-height, 96px); }
      .timelin-host { width: 100%; height: 100%; }`,
   ],
 })
