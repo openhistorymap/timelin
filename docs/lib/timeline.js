@@ -759,9 +759,13 @@ export class Timeline {
         tail.className = 'tail';
         tail.setAttribute('aria-hidden', 'true');
         this.tooltip.append(card, tail);
+        this.tooltip.classList.remove('down');
         this.tooltip.style.left = `${x}px`;
         this.tooltip.style.top = `${anchorY}px`;
         this.tooltip.style.display = '';
+        const h = this.tooltip.offsetHeight;
+        if (h > 0 && anchorY - h - 16 < 0)
+            this.tooltip.classList.add('down');
     }
     hideTooltip() {
         this.tooltip.style.display = 'none';
