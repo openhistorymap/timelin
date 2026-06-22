@@ -53,6 +53,8 @@ export class Timeline {
         };
         this.hoveredEra = null;
         this.hoveredEvent = null;
+        this.eventMarkers = new Map();
+        this.eraMarkers = new Map();
         this.dragging = false;
         this.dragStartX = 0;
         this.dragStartY = 0;
@@ -515,6 +517,7 @@ export class Timeline {
     }
     renderEras() {
         clear(this.gEras);
+        this.eraMarkers.clear();
         const top = this.layout.laneAreaTop;
         const lineBottom = this.layout.contentHeight - 6;
         this.eras.forEach((e, i) => {
@@ -524,18 +527,21 @@ export class Timeline {
             if (x < this.layout.plotLeft - 0.5)
                 return;
             const hovered = this.hoveredEra === i;
-            this.gEras.append(svgEl('line', {
+            const line = svgEl('line', {
                 x1: x,
                 x2: x,
                 y1: top,
                 y2: lineBottom,
                 class: 'timelin-era-line' + (hovered ? ' is-hovered' : ''),
-            }), svgEl('circle', {
+            });
+            const dot = svgEl('circle', {
                 cx: x,
                 cy: top,
                 r: 2,
                 class: 'timelin-era-dot' + (hovered ? ' is-hovered' : ''),
-            }));
+            });
+            this.eraMarkers.set(i, [line, dot]);
+            this.gEras.append(line, dot);
             const hit = svgEl('rect', {
                 x: x - 9,
                 y: top - 6,
@@ -554,6 +560,7 @@ export class Timeline {
     }
     renderEvents() {
         clear(this.gEvents);
+        this.eventMarkers.clear();
         if (!this.events.length)
             return;
         if (this.layout.mode === 'swimlane')
@@ -622,6 +629,7 @@ export class Timeline {
                 rect.style.fillOpacity = hovered ? '0.6' : '0.34';
                 rect.style.stroke = color;
             }
+            this.eventMarkers.set(ev.id, { el: rect, span: true, colored: !!color });
             this.gEvents.append(rect);
         }
         else {
@@ -634,6 +642,7 @@ export class Timeline {
             });
             if (color)
                 dot.style.fill = color;
+            this.eventMarkers.set(ev.id, { el: dot, span: false, colored: !!color });
             this.gEvents.append(dot);
         }
         const hitX = Math.max(plotLeft, x0 - 4);
@@ -730,17 +739,38 @@ export class Timeline {
             }
         }
     }
+    setEraHover(i, on) {
+        var _a;
+        (_a = this.eraMarkers.get(i)) === null || _a === void 0 ? void 0 : _a.forEach((el) => el.classList.toggle('is-hovered', on));
+    }
+    setEventHover(id, on) {
+        const m = this.eventMarkers.get(id);
+        if (!m)
+            return;
+        m.el.classList.toggle('is-hovered', on);
+        if (m.span) {
+            if (m.colored)
+                m.el.style.fillOpacity = on ? '0.6' : '0.34';
+        }
+        else {
+            m.el.setAttribute('r', on ? '4' : '3');
+        }
+    }
     showEraTooltip(i, x) {
         const e = this.eras[i];
         if (!e)
             return;
+        if (this.hoveredEra !== null && this.hoveredEra !== i)
+            this.setEraHover(this.hoveredEra, false);
         this.hoveredEra = i;
-        this.renderEras();
+        this.setEraHover(i, true);
         this.fillTooltip(formatPlainYear(e.year), e.label, x, this.layout.laneAreaTop);
     }
     showEventTooltip(ev, x, anchorY) {
+        if (this.hoveredEvent !== null && this.hoveredEvent !== ev.id)
+            this.setEventHover(this.hoveredEvent, false);
         this.hoveredEvent = ev.id;
-        this.renderEvents();
+        this.setEventHover(ev.id, true);
         const viewportY = Math.max(this.layout.laneAreaTop, anchorY - this.scrollY);
         this.fillTooltip(formatYearRange(ev.year, ev.endYear), ev.description ? `${ev.title} — ${ev.description}` : ev.title, x, viewportY);
     }
@@ -764,18 +794,18 @@ export class Timeline {
         this.tooltip.style.top = `${anchorY}px`;
         this.tooltip.style.display = '';
         const h = this.tooltip.offsetHeight;
-        if (h > 0 && anchorY - h - 16 < 0)
+        if (h > 0 && anchorY - h - 10 < 0)
             this.tooltip.classList.add('down');
     }
     hideTooltip() {
         this.tooltip.style.display = 'none';
         if (this.hoveredEra !== null) {
+            this.setEraHover(this.hoveredEra, false);
             this.hoveredEra = null;
-            this.renderEras();
         }
         if (this.hoveredEvent !== null) {
+            this.setEventHover(this.hoveredEvent, false);
             this.hoveredEvent = null;
-            this.renderEvents();
         }
     }
     localX(ev) {
